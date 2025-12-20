@@ -6,12 +6,14 @@ const highScoreEl = document.getElementById("highScore");
 const livesEl = document.getElementById("lives");
 const streakEl = document.getElementById("streak");
 const statusEl = document.getElementById("status");
+const gameRoot = document.querySelector(".game");
 const toneInput = document.getElementById("toneInput");
 const startBtn = document.getElementById("startBtn");
 const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
 
 const STORAGE_KEY = "toneRaindropProgress";
+const INPUT_IDLE_CLEAR_MS = 500;
 
 const WORDS_BY_TONE = {
   "1": [
@@ -275,10 +277,33 @@ const DOUBLE_TONES = [
   "43",
   "44",
 ];
+const DOUBLE_TONES_1X = DOUBLE_TONES.filter((tone) => tone.startsWith("1"));
+const DOUBLE_TONES_2X = DOUBLE_TONES.filter((tone) => tone.startsWith("2"));
+const DOUBLE_TONES_3X = DOUBLE_TONES.filter((tone) => tone.startsWith("3"));
+const DOUBLE_TONES_4X = DOUBLE_TONES.filter((tone) => tone.startsWith("4"));
 
 const LEVELS = [
-  { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0 },
-  { id: "1-44", label: "1-44", tones: [...SINGLE_TONES, ...DOUBLE_TONES], unlockScore: 20 },
+  { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0, speedScale: 1, spawnScale: 1 },
+  { id: "1x", label: "1x", tones: DOUBLE_TONES_1X, unlockScore: 8, speedScale: 1, spawnScale: 1 },
+  { id: "2x", label: "2x", tones: DOUBLE_TONES_2X, unlockScore: 12, speedScale: 1, spawnScale: 1 },
+  { id: "3x", label: "3x", tones: DOUBLE_TONES_3X, unlockScore: 16, speedScale: 1, spawnScale: 1 },
+  { id: "4x", label: "4x", tones: DOUBLE_TONES_4X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  {
+    id: "1-44-slow",
+    label: "1-44 (Slow)",
+    tones: [...SINGLE_TONES, ...DOUBLE_TONES],
+    unlockScore: 24,
+    speedScale: 0.85,
+    spawnScale: 1.2,
+  },
+  {
+    id: "1-44",
+    label: "1-44",
+    tones: [...SINGLE_TONES, ...DOUBLE_TONES],
+    unlockScore: 28,
+    speedScale: 1,
+    spawnScale: 1,
+  },
 ];
 
 LEVELS.forEach((level) => {
@@ -286,6 +311,7 @@ LEVELS.forEach((level) => {
 });
 
 const progress = loadProgress();
+normalizeProgress();
 ensureBaseUnlocks();
 
 const drops = [];
@@ -304,6 +330,8 @@ const state = {
   lastSpawn: 0,
   baseSpawn: 1900,
   baseSpeed: 70,
+  speedScale: 1,
+  spawnScale: 1,
   safeBottom: 0,
   width: 0,
   height: 0,
@@ -314,6 +342,7 @@ const state = {
 let lastSpoken = null;
 let zhVoice = null;
 let nextDropId = 0;
+let idleClearTimer = null;
 
 function loadProgress() {
   const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null };
@@ -365,6 +394,33 @@ function ensureBaseUnlocks() {
       progress.unlocked.add(level.id);
     }
   });
+}
+
+function normalizeProgress() {
+  const validIds = new Set(LEVELS.map((level) => level.id));
+  if (progress.unlocked.has("1x-4x")) {
+    progress.unlocked.delete("1x-4x");
+    ["1x", "2x", "3x", "4x"].forEach((id) => progress.unlocked.add(id));
+  }
+  if (progress.lastLevel === "1x-4x") {
+    progress.lastLevel = "1x";
+  }
+  if (progress.highscores["1x-4x"]) {
+    const legacyScore = Number(progress.highscores["1x-4x"]) || 0;
+    if (legacyScore && !progress.highscores["1x"]) {
+      progress.highscores["1x"] = legacyScore;
+    }
+    delete progress.highscores["1x-4x"];
+  }
+  progress.unlocked.forEach((id) => {
+    if (!validIds.has(id)) {
+      progress.unlocked.delete(id);
+    }
+  });
+  if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
+    progress.lastLevel = null;
+  }
+  saveProgress();
 }
 
 function getLevelById(levelId) {
@@ -424,6 +480,8 @@ function setLevel(levelId, { announce = true } = {}) {
   const level = getLevelById(levelId);
   state.levelId = level.id;
   state.wordPool = level.wordPool;
+  state.speedScale = level.speedScale ?? 1;
+  state.spawnScale = level.spawnScale ?? 1;
   progress.lastLevel = level.id;
   saveProgress();
   updateHighScore();
@@ -495,15 +553,37 @@ function focusInput() {
   }
 }
 
+function clearInputTimer() {
+  if (idleClearTimer) {
+    window.clearTimeout(idleClearTimer);
+    idleClearTimer = null;
+  }
+}
+
+function scheduleInputClear() {
+  clearInputTimer();
+  idleClearTimer = window.setTimeout(() => {
+    idleClearTimer = null;
+    if (!state.running || toneInput.hasAttribute("disabled")) {
+      return;
+    }
+    if (toneInput.value) {
+      toneInput.value = "";
+    }
+  }, INPUT_IDLE_CLEAR_MS);
+}
+
 function sanitizeInput(value) {
   return value.replace(/[^1-4]/g, "").slice(0, 2);
 }
 
 function difficulty() {
   const level = 1 + state.score / 9;
+  const spawnScale = state.spawnScale ?? 1;
+  const speedScale = state.speedScale ?? 1;
   return {
-    spawn: Math.max(850, state.baseSpawn / level),
-    speed: state.baseSpeed + state.score * 2.5,
+    spawn: Math.max(850, state.baseSpawn / level) * spawnScale,
+    speed: (state.baseSpeed + state.score * 2.5) * speedScale,
   };
 }
 
@@ -554,6 +634,8 @@ function startGame() {
   state.gameOver = false;
   state.lastFrame = 0;
   state.lastSpawn = performance.now();
+  gameRoot?.classList.add("game--running");
+  statusEl.setAttribute("hidden", "hidden");
   setStatus(
     state.pauseUsed
       ? "Resumed. Paused runs do not count for highscores or unlocks."
@@ -569,7 +651,10 @@ function startGame() {
 function pauseGame() {
   state.running = false;
   state.pauseUsed = true;
+  gameRoot?.classList.remove("game--running");
   toneInput.setAttribute("disabled", "disabled");
+  clearInputTimer();
+  statusEl.removeAttribute("hidden");
   startBtn.textContent = "Resume";
   setStatus("Paused. Score will not count for highscores or unlocks.");
 }
@@ -579,6 +664,7 @@ function resetGame() {
   splashes.length = 0;
   reveals.length = 0;
   translations.length = 0;
+  clearInputTimer();
   state.score = 0;
   state.lives = 3;
   state.streak = 0;
@@ -587,6 +673,8 @@ function resetGame() {
   state.running = false;
   state.gameOver = false;
   state.pauseUsed = false;
+  gameRoot?.classList.remove("game--running");
+  statusEl.removeAttribute("hidden");
   updateHud();
   updateHighScore();
   setStatus(levelReadyMessage(getLevelById(state.levelId)));
@@ -632,9 +720,12 @@ function finalizeRun() {
 function endGame() {
   state.running = false;
   state.gameOver = true;
+  clearInputTimer();
+  gameRoot?.classList.remove("game--running");
   toneInput.setAttribute("disabled", "disabled");
   startBtn.textContent = "Restart";
   levelSelect.disabled = false;
+  statusEl.removeAttribute("hidden");
   finalizeRun();
 }
 
@@ -920,6 +1011,11 @@ toneInput.addEventListener("input", () => {
   if (toneInput.value !== cleaned) {
     toneInput.value = cleaned;
   }
+  if (cleaned) {
+    scheduleInputClear();
+  } else {
+    clearInputTimer();
+  }
   if (!state.running || !cleaned) {
     return;
   }
@@ -927,6 +1023,7 @@ toneInput.addEventListener("input", () => {
   if (match) {
     clearDrop(match);
     toneInput.value = "";
+    clearInputTimer();
     focusInput();
   }
 });

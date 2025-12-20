@@ -144,6 +144,13 @@ body {
   color: var(--ink-dim);
   box-shadow: var(--shadow);
   animation: floatIn 1s ease-out both 0.2s;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.game--running .status {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
 }
 
 .input-panel {
