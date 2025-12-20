@@ -13,7 +13,8 @@ const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
 
 const STORAGE_KEY = "toneRaindropProgress";
-const INPUT_IDLE_CLEAR_MS = 500;
+const INPUT_IDLE_CLEAR_MS = 1000;
+const SPEECH_MIN_INTERVAL_MS = 320;
 
 const WORDS_BY_TONE = {
   "1": [
@@ -284,15 +285,15 @@ const DOUBLE_TONES_4X = DOUBLE_TONES.filter((tone) => tone.startsWith("4"));
 
 const LEVELS = [
   { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0, speedScale: 1, spawnScale: 1 },
-  { id: "1x", label: "1x", tones: DOUBLE_TONES_1X, unlockScore: 8, speedScale: 1, spawnScale: 1 },
-  { id: "2x", label: "2x", tones: DOUBLE_TONES_2X, unlockScore: 12, speedScale: 1, spawnScale: 1 },
-  { id: "3x", label: "3x", tones: DOUBLE_TONES_3X, unlockScore: 16, speedScale: 1, spawnScale: 1 },
+  { id: "1x", label: "1x", tones: DOUBLE_TONES_1X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  { id: "2x", label: "2x", tones: DOUBLE_TONES_2X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  { id: "3x", label: "3x", tones: DOUBLE_TONES_3X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   { id: "4x", label: "4x", tones: DOUBLE_TONES_4X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   {
     id: "1-44-slow",
     label: "1-44 (Slow)",
     tones: [...SINGLE_TONES, ...DOUBLE_TONES],
-    unlockScore: 24,
+    unlockScore: 20,
     speedScale: 0.85,
     spawnScale: 1.2,
   },
@@ -300,7 +301,7 @@ const LEVELS = [
     id: "1-44",
     label: "1-44",
     tones: [...SINGLE_TONES, ...DOUBLE_TONES],
-    unlockScore: 28,
+    unlockScore: 20,
     speedScale: 1,
     spawnScale: 1,
   },
@@ -343,6 +344,7 @@ let lastSpoken = null;
 let zhVoice = null;
 let nextDropId = 0;
 let idleClearTimer = null;
+let lastSpeakAt = 0;
 
 function loadProgress() {
   const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null };
@@ -507,9 +509,18 @@ if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
 }
 
-function speak(text) {
+function speak(text, { force = false } = {}) {
   if (!window.speechSynthesis) {
     return;
+  }
+  const now = performance.now();
+  const synth = window.speechSynthesis;
+  if (!force && now - lastSpeakAt < SPEECH_MIN_INTERVAL_MS && synth.speaking) {
+    return;
+  }
+  lastSpeakAt = now;
+  if (synth.pending || synth.speaking) {
+    synth.cancel();
   }
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "zh-CN";
@@ -518,7 +529,7 @@ function speak(text) {
   if (zhVoice) {
     utterance.voice = zhVoice;
   }
-  window.speechSynthesis.speak(utterance);
+  synth.speak(utterance);
 }
 
 function resizeCanvas() {
@@ -990,7 +1001,7 @@ function handlePointer(event) {
   });
   if (hit) {
     lastSpoken = hit;
-    speak(hit.text);
+    speak(hit.text, { force: true });
     setStatus(`Replaying: ${hit.text}`);
   }
 }
@@ -1032,7 +1043,7 @@ replayBtn.addEventListener("click", () => {
   if (!lastSpoken) {
     return;
   }
-  speak(lastSpoken.text);
+  speak(lastSpoken.text, { force: true });
   setStatus(`Replaying: ${lastSpoken.text}`);
 });
 
