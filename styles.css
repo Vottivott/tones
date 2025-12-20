@@ -1,0 +1,290 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&family=ZCOOL+KuaiLe&display=swap');
+
+:root {
+  --bg-deep: #031a24;
+  --bg-mid: #073b4a;
+  --bg-light: #0d6a7a;
+  --sea-foam: #91e5f6;
+  --accent: #f5c451;
+  --accent-strong: #ff8d6b;
+  --ink: #e8f7fb;
+  --ink-dim: rgba(232, 247, 251, 0.72);
+  --panel: rgba(7, 58, 73, 0.82);
+  --panel-border: rgba(145, 229, 246, 0.3);
+  --shadow: 0 12px 35px rgba(2, 20, 28, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Fira Sans", "Noto Sans SC", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 15% 15%, rgba(145, 229, 246, 0.18), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(255, 141, 107, 0.2), transparent 40%),
+    linear-gradient(165deg, var(--bg-light), var(--bg-mid) 45%, var(--bg-deep));
+  overflow: hidden;
+}
+
+.mist {
+  position: fixed;
+  inset: -20% 0 0;
+  background: radial-gradient(circle at 20% 30%, rgba(145, 229, 246, 0.2), transparent 40%),
+    radial-gradient(circle at 80% 50%, rgba(12, 139, 158, 0.25), transparent 35%);
+  opacity: 0.7;
+  animation: drift 18s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100vh;
+  height: 100dvh;
+  padding: 2rem clamp(1.5rem, 4vw, 4rem) 2.5rem;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  padding: 1rem 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  animation: floatIn 0.9s ease-out both;
+}
+
+.hud__block {
+  display: grid;
+  gap: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hud__label {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+
+.hud__value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.hud__block--select {
+  min-width: 160px;
+}
+
+.hud__select {
+  appearance: none;
+  padding: 0.45rem 2.2rem 0.45rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(145, 229, 246, 0.35);
+  background: rgba(2, 25, 35, 0.6);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%),
+    linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.hud__select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hud__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.arena {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 28px;
+  border: 1px solid rgba(145, 229, 246, 0.2);
+  background: rgba(3, 24, 35, 0.3);
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+#gameCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.status {
+  position: absolute;
+  inset: auto 2rem 2rem 2rem;
+  padding: 0.75rem 1rem;
+  background: rgba(7, 55, 71, 0.82);
+  border-radius: 16px;
+  border: 1px solid rgba(145, 229, 246, 0.25);
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+  box-shadow: var(--shadow);
+  animation: floatIn 1s ease-out both 0.2s;
+}
+
+.input-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 22px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  animation: floatIn 1s ease-out both 0.4s;
+}
+
+.input-panel__text h1 {
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+
+.input-panel__text p {
+  margin: 0;
+  color: var(--ink-dim);
+}
+
+.input-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+input#toneInput {
+  width: 9rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 14px;
+  border: 1px solid rgba(145, 229, 246, 0.4);
+  background: rgba(2, 25, 35, 0.6);
+  color: var(--ink);
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+input#toneInput:focus {
+  border-color: var(--sea-foam);
+  box-shadow: 0 0 0 3px rgba(145, 229, 246, 0.2);
+}
+
+.btn {
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(120deg, rgba(145, 229, 246, 0.8), rgba(12, 139, 158, 0.95));
+  color: #01202a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(2, 20, 28, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 16px 26px rgba(2, 20, 28, 0.45);
+}
+
+.btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.btn--bright {
+  background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+  color: #1d1403;
+}
+
+.btn--ghost {
+  background: rgba(8, 54, 69, 0.7);
+  color: var(--ink);
+  border: 1px solid rgba(145, 229, 246, 0.35);
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translateX(-2%) translateY(-2%);
+  }
+  100% {
+    transform: translateX(2%) translateY(2%);
+  }
+}
+
+@media (max-width: 900px) {
+  .hud {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .input-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .input-panel__controls {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .game {
+    padding: 1.2rem;
+  }
+
+  .status {
+    inset: auto 1rem 1rem 1rem;
+  }
+
+  input#toneInput {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

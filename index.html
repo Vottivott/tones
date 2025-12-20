@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chinese Tone Raindrops</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="mist" aria-hidden="true"></div>
+    <main class="game" aria-live="polite">
+      <header class="hud">
+        <div class="hud__block">
+          <span class="hud__label">Score</span>
+          <span id="score" class="hud__value">0</span>
+        </div>
+        <div class="hud__block">
+          <span class="hud__label">High Score</span>
+          <span id="highScore" class="hud__value">0</span>
+        </div>
+        <div class="hud__block">
+          <span class="hud__label">Lives</span>
+          <span id="lives" class="hud__value">3</span>
+        </div>
+        <div class="hud__block">
+          <span class="hud__label">Streak</span>
+          <span id="streak" class="hud__value">0</span>
+        </div>
+        <div class="hud__block hud__block--select">
+          <label class="hud__label" for="levelSelect">Level</label>
+          <select id="levelSelect" class="hud__select" aria-label="Select level"></select>
+        </div>
+        <div class="hud__actions">
+          <button id="startBtn" class="btn">Start</button>
+          <button id="replayBtn" class="btn btn--ghost" type="button">Replay Sound</button>
+        </div>
+      </header>
+
+      <section class="arena" aria-label="Tone raindrop playfield">
+        <canvas id="gameCanvas" role="img" aria-label="Falling tone drops"></canvas>
+        <div id="status" class="status">Press Start to begin.</div>
+      </section>
+
+      <section class="input-panel" aria-label="Tone input">
+        <div class="input-panel__text">
+          <h1>Listen and type the tone numbers.</h1>
+          <p>Choose a level, then type tone numbers like <strong>23</strong>. Correct tones clear instantly with a Swedish hint.</p>
+        </div>
+        <div class="input-panel__controls">
+          <input
+            id="toneInput"
+            type="text"
+            inputmode="numeric"
+            pattern="[1-4]*"
+            maxlength="2"
+            placeholder="Tone #"
+            autocomplete="off"
+            aria-label="Type tone numbers"
+            disabled
+          />
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
