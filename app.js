@@ -278,7 +278,6 @@ const DOUBLE_TONES = [
 
 const LEVELS = [
   { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0 },
-  { id: "11-44", label: "11-44", tones: DOUBLE_TONES, unlockScore: 12 },
   { id: "1-44", label: "1-44", tones: [...SINGLE_TONES, ...DOUBLE_TONES], unlockScore: 20 },
 ];
 
