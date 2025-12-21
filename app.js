@@ -11,6 +11,8 @@ const toneInput = document.getElementById("toneInput");
 const startBtn = document.getElementById("startBtn");
 const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
+const keypad = document.getElementById("keypad");
+const keypadButtons = keypad ? Array.from(keypad.querySelectorAll(".keypad__key")) : [];
 
 const STORAGE_KEY = "toneRaindropProgress";
 const INPUT_IDLE_CLEAR_MS = 1000;
@@ -324,6 +326,7 @@ const state = {
   running: false,
   gameOver: false,
   pauseUsed: false,
+  useKeypad: false,
   score: 0,
   lives: 3,
   streak: 0,
@@ -541,6 +544,7 @@ function resizeCanvas() {
   state.width = rect.width;
   state.height = rect.height;
   state.safeBottom = rect.height - 6;
+  updateInputMode();
 }
 
 function updateHud() {
@@ -554,7 +558,7 @@ function setStatus(message) {
 }
 
 function focusInput() {
-  if (toneInput.hasAttribute("disabled")) {
+  if (toneInput.hasAttribute("disabled") || state.useKeypad) {
     return;
   }
   try {
@@ -575,7 +579,7 @@ function scheduleInputClear() {
   clearInputTimer();
   idleClearTimer = window.setTimeout(() => {
     idleClearTimer = null;
-    if (!state.running || toneInput.hasAttribute("disabled")) {
+    if (!state.running) {
       return;
     }
     if (toneInput.value) {
@@ -586,6 +590,68 @@ function scheduleInputClear() {
 
 function sanitizeInput(value) {
   return value.replace(/[^1-4]/g, "").slice(0, 2);
+}
+
+function isPortraitLike() {
+  return window.matchMedia("(orientation: portrait)").matches || window.innerHeight > window.innerWidth;
+}
+
+function updateInputMode() {
+  state.useKeypad = isPortraitLike();
+  if (gameRoot) {
+    gameRoot.classList.toggle("game--keypad", state.useKeypad);
+  }
+  if (state.useKeypad) {
+    toneInput.setAttribute("inputmode", "none");
+    toneInput.setAttribute("readonly", "readonly");
+    toneInput.blur();
+  } else {
+    toneInput.setAttribute("inputmode", "numeric");
+    toneInput.removeAttribute("readonly");
+  }
+  updateInputEnabled();
+}
+
+function updateInputEnabled() {
+  if (state.running) {
+    toneInput.removeAttribute("disabled");
+  } else {
+    toneInput.setAttribute("disabled", "disabled");
+  }
+  keypadButtons.forEach((button) => {
+    button.disabled = !state.running || !state.useKeypad;
+  });
+}
+
+function handleToneValue(value) {
+  const cleaned = sanitizeInput(value);
+  if (toneInput.value !== cleaned) {
+    toneInput.value = cleaned;
+  }
+  if (cleaned) {
+    scheduleInputClear();
+  } else {
+    clearInputTimer();
+  }
+  if (!state.running || !cleaned) {
+    return;
+  }
+  const match = findMatch(cleaned);
+  if (match) {
+    clearDrop(match);
+    toneInput.value = "";
+    clearInputTimer();
+    focusInput();
+  }
+}
+
+function appendDigit(digit) {
+  if (!state.running) {
+    return;
+  }
+  const nextValue = sanitizeInput(`${toneInput.value}${digit}`);
+  toneInput.value = nextValue;
+  handleToneValue(nextValue);
 }
 
 function difficulty() {
@@ -647,12 +713,12 @@ function startGame() {
   state.lastSpawn = performance.now();
   gameRoot?.classList.add("game--running");
   statusEl.setAttribute("hidden", "hidden");
+  updateInputEnabled();
   setStatus(
     state.pauseUsed
       ? "Resumed. Paused runs do not count for highscores or unlocks."
       : "Drops incoming... type the tone numbers."
   );
-  toneInput.removeAttribute("disabled");
   startBtn.textContent = "Pause";
   levelSelect.disabled = true;
   focusInput();
@@ -663,7 +729,7 @@ function pauseGame() {
   state.running = false;
   state.pauseUsed = true;
   gameRoot?.classList.remove("game--running");
-  toneInput.setAttribute("disabled", "disabled");
+  updateInputEnabled();
   clearInputTimer();
   statusEl.removeAttribute("hidden");
   startBtn.textContent = "Resume";
@@ -686,10 +752,10 @@ function resetGame() {
   state.pauseUsed = false;
   gameRoot?.classList.remove("game--running");
   statusEl.removeAttribute("hidden");
+  updateInputEnabled();
   updateHud();
   updateHighScore();
   setStatus(levelReadyMessage(getLevelById(state.levelId)));
-  toneInput.setAttribute("disabled", "disabled");
   startBtn.textContent = "Start";
   levelSelect.disabled = false;
 }
@@ -733,7 +799,7 @@ function endGame() {
   state.gameOver = true;
   clearInputTimer();
   gameRoot?.classList.remove("game--running");
-  toneInput.setAttribute("disabled", "disabled");
+  updateInputEnabled();
   startBtn.textContent = "Restart";
   levelSelect.disabled = false;
   statusEl.removeAttribute("hidden");
@@ -1018,25 +1084,7 @@ startBtn.addEventListener("click", () => {
 });
 
 toneInput.addEventListener("input", () => {
-  const cleaned = sanitizeInput(toneInput.value);
-  if (toneInput.value !== cleaned) {
-    toneInput.value = cleaned;
-  }
-  if (cleaned) {
-    scheduleInputClear();
-  } else {
-    clearInputTimer();
-  }
-  if (!state.running || !cleaned) {
-    return;
-  }
-  const match = findMatch(cleaned);
-  if (match) {
-    clearDrop(match);
-    toneInput.value = "";
-    clearInputTimer();
-    focusInput();
-  }
+  handleToneValue(toneInput.value);
 });
 
 replayBtn.addEventListener("click", () => {
@@ -1045,6 +1093,12 @@ replayBtn.addEventListener("click", () => {
   }
   speak(lastSpoken.text, { force: true });
   setStatus(`Replaying: ${lastSpoken.text}`);
+});
+
+keypadButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    appendDigit(button.dataset.digit);
+  });
 });
 
 levelSelect.addEventListener("change", () => {

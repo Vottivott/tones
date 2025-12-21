@@ -184,6 +184,48 @@ body {
   gap: 0.75rem;
 }
 
+.keypad {
+  display: none;
+  gap: 0.6rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game--keypad .keypad {
+  display: grid;
+}
+
+.keypad__key {
+  padding: 0.65rem 0.9rem;
+  border-radius: 16px;
+  border: none;
+  background: rgba(8, 54, 69, 0.8);
+  color: var(--ink);
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(145, 229, 246, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.keypad__key:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(145, 229, 246, 0.5);
+}
+
+.keypad__key:active {
+  transform: translateY(1px);
+}
+
+.keypad__key:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.game--keypad input#toneInput {
+  pointer-events: none;
+  width: min(12rem, 100%);
+}
+
 input#toneInput {
   width: 9rem;
   padding: 0.65rem 0.75rem;
@@ -272,6 +314,11 @@ input#toneInput:focus {
   .input-panel__controls {
     width: 100%;
     justify-content: center;
+  }
+
+  .game--keypad .input-panel__controls {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
