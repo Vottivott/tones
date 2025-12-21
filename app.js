@@ -604,16 +604,20 @@ function updateInputMode() {
   if (state.useKeypad) {
     toneInput.setAttribute("inputmode", "none");
     toneInput.setAttribute("readonly", "readonly");
+    toneInput.setAttribute("tabindex", "-1");
     toneInput.blur();
   } else {
     toneInput.setAttribute("inputmode", "numeric");
     toneInput.removeAttribute("readonly");
+    toneInput.removeAttribute("tabindex");
   }
   updateInputEnabled();
 }
 
 function updateInputEnabled() {
-  if (state.running) {
+  if (state.useKeypad) {
+    toneInput.setAttribute("disabled", "disabled");
+  } else if (state.running) {
     toneInput.removeAttribute("disabled");
   } else {
     toneInput.setAttribute("disabled", "disabled");
