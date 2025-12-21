@@ -7,6 +7,7 @@ const livesEl = document.getElementById("lives");
 const streakEl = document.getElementById("streak");
 const statusEl = document.getElementById("status");
 const gameRoot = document.querySelector(".game");
+const arena = document.querySelector(".arena");
 const toneInput = document.getElementById("toneInput");
 const startBtn = document.getElementById("startBtn");
 const replayBtn = document.getElementById("replayBtn");
@@ -17,6 +18,7 @@ const keypadButtons = keypad ? Array.from(keypad.querySelectorAll(".keypad__key"
 const STORAGE_KEY = "toneRaindropProgress";
 const INPUT_IDLE_CLEAR_MS = 1000;
 const SPEECH_MIN_INTERVAL_MS = 320;
+const MAX_FRAME_DELTA = 0.08;
 
 const WORDS_BY_TONE = {
   "1": [
@@ -537,9 +539,16 @@ function speak(text, { force = false } = {}) {
 
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return;
+  }
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  const nextWidth = Math.round(rect.width * dpr);
+  const nextHeight = Math.round(rect.height * dpr);
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   state.width = rect.width;
   state.height = rect.height;
@@ -1031,7 +1040,7 @@ function tick(timestamp) {
   if (!state.lastFrame) {
     state.lastFrame = timestamp;
   }
-  const delta = (timestamp - state.lastFrame) / 1000;
+  const delta = Math.min((timestamp - state.lastFrame) / 1000, MAX_FRAME_DELTA);
   state.lastFrame = timestamp;
 
   const { spawn } = difficulty();
@@ -1117,6 +1126,11 @@ levelSelect.addEventListener("change", () => {
 
 canvas.addEventListener("pointerdown", handlePointer);
 window.addEventListener("resize", resizeCanvas);
+window.visualViewport?.addEventListener("resize", resizeCanvas);
+if ("ResizeObserver" in window && arena) {
+  const observer = new ResizeObserver(() => resizeCanvas());
+  observer.observe(arena);
+}
 
 resizeCanvas();
 renderLevelOptions();
