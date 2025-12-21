@@ -237,6 +237,14 @@ body {
   width: 100%;
 }
 
+.game--running.game--keypad .hud {
+  display: none;
+}
+
+.game--running.game--keypad .input-panel__text {
+  display: none;
+}
+
 input#toneInput {
   width: 9rem;
   padding: 0.65rem 0.75rem;
