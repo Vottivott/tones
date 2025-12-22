@@ -166,6 +166,10 @@ body.bird-active {
   flex-wrap: wrap;
 }
 
+.game--running .status__medals {
+  display: none;
+}
+
 .medal {
   width: 44px;
   height: 44px;
@@ -322,7 +326,7 @@ img.medal {
   border-radius: 18px;
   border: 1px solid rgba(145, 229, 246, 0.2);
   box-shadow: inset 0 0 0 1px rgba(3, 26, 36, 0.4);
-  background: rgba(3, 26, 36, 0.6);
+  background: #fff;
 }
 
 .bird-dialog__content {
