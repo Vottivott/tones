@@ -1,4 +1,4 @@
-const CACHE_NAME = "tone-raindrops-v16";
+const CACHE_NAME = "tone-raindrops-v17";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,7 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./speaking_animation.gif",
+  "./speaking_animation.webp",
   "./medals/bronze.png",
   "./medals/silver.png",
   "./medals/gold.png",
