@@ -697,17 +697,22 @@ function updateStatusPlacement() {
   statusEl.classList.toggle("status--centered", shouldCenter);
 }
 
-function buildBirdDialog({ score, newMedalId, isHighScore }) {
+function buildBirdDialog({ score, newMedalId, isHighScore, unlockedNextLevel }) {
   if (newMedalId) {
     const medal = MEDAL_LOOKUP.get(newMedalId);
+    const lines = [];
     let text = `Congratulations! You earned the ${medal.label.toLowerCase()} medal!`;
     if (newMedalId === SECRET_MEDAL.id) {
       text =
         "I am EXTREMELY impressed, and I've created a new medal just for students like you - the platinum medal!";
     }
+    lines.push(text);
+    if (unlockedNextLevel) {
+      lines.push("I have now unlocked the next level!");
+    }
     return {
       title: "YOU GOT A MEDAL!",
-      text,
+      text: lines.join("\n"),
       medalId: newMedalId,
     };
   }
@@ -1023,6 +1028,7 @@ function finalizeRun() {
     score: state.score,
     newMedalId,
     isHighScore,
+    unlockedNextLevel: Boolean(unlocked),
   });
   showBird(birdDialog);
 }
