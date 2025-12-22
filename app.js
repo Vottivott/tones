@@ -335,6 +335,7 @@ LEVELS.forEach((level) => {
 const progress = loadProgress();
 normalizeProgress();
 ensureBaseUnlocks();
+ensureBranchUnlocks();
 
 const drops = [];
 const splashes = [];
@@ -419,6 +420,14 @@ function ensureBaseUnlocks() {
   });
 }
 
+function ensureBranchUnlocks() {
+  if (progress.unlocked.has("4x")) {
+    if (unlockUpToLevel("1-44-slow")) {
+      saveProgress();
+    }
+  }
+}
+
 function normalizeProgress() {
   const validIds = new Set(LEVELS.map((level) => level.id));
   if (progress.unlocked.has("1x-4x")) {
@@ -456,6 +465,35 @@ function getNextLevel(levelId) {
     return null;
   }
   return LEVELS[index + 1] || null;
+}
+
+function unlockUpToLevel(levelId) {
+  const index = LEVELS.findIndex((level) => level.id === levelId);
+  if (index === -1) {
+    return false;
+  }
+  let unlockedAny = false;
+  for (let i = 0; i <= index; i += 1) {
+    const level = LEVELS[i];
+    if (!progress.unlocked.has(level.id)) {
+      progress.unlocked.add(level.id);
+      unlockedAny = true;
+    }
+  }
+  return unlockedAny;
+}
+
+function areAllPreviousUnlocked(levelId) {
+  const index = LEVELS.findIndex((level) => level.id === levelId);
+  if (index <= 0) {
+    return true;
+  }
+  for (let i = 0; i < index; i += 1) {
+    if (!progress.unlocked.has(LEVELS[i].id)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isLevelUnlocked(levelId) {
@@ -1003,15 +1041,26 @@ function resetGame() {
 
 function maybeUnlockNextLevel() {
   const nextLevel = getNextLevel(state.levelId);
-  if (!nextLevel || isLevelUnlocked(nextLevel.id)) {
-    return null;
+  let unlockedLevel = null;
+  let unlockedAny = false;
+
+  if (nextLevel && !isLevelUnlocked(nextLevel.id) && state.score >= nextLevel.unlockScore) {
+    if (nextLevel.id === "1-44" && !areAllPreviousUnlocked(nextLevel.id)) {
+      return null;
+    }
+    unlockedAny = unlockUpToLevel(nextLevel.id) || unlockedAny;
+    unlockedLevel = nextLevel;
   }
-  if (state.score < nextLevel.unlockScore) {
-    return null;
+
+  if (progress.unlocked.has("4x") && !isLevelUnlocked("1-44-slow")) {
+    unlockedAny = unlockUpToLevel("1-44-slow") || unlockedAny;
   }
-  progress.unlocked.add(nextLevel.id);
-  renderLevelOptions();
-  return nextLevel;
+
+  if (unlockedAny) {
+    renderLevelOptions();
+  }
+
+  return unlockedLevel;
 }
 
 function finalizeRun() {
