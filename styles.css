@@ -260,8 +260,12 @@ img.medal {
 }
 
 .backspace-btn {
-  min-height: 48px;
-  padding: 0.5rem 0.9rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  padding: 0;
   border-radius: 14px;
   border: 1px solid rgba(145, 229, 246, 0.35);
   background: rgba(8, 54, 69, 0.7);
@@ -330,19 +334,27 @@ img.medal {
 
 .game--keypad input#toneInput {
   pointer-events: none;
-  width: min(12rem, 100%);
+  width: 100%;
   opacity: 1;
   -webkit-text-fill-color: var(--ink);
 }
 
 .game--keypad .backspace-btn {
-  width: min(12rem, 100%);
+  display: inline-flex;
+  width: 2.8rem;
+  height: 2.8rem;
 }
 
 .game--keypad .input-panel__controls {
-  flex-direction: column;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
   width: 100%;
+}
+
+.game--keypad .keypad {
+  grid-column: 1 / -1;
 }
 
 .game--running.game--keypad .hud {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "tone-raindrops-v22";
+const CACHE_NAME = "tone-raindrops-v23";
 const ASSETS = [
   "./",
   "./index.html",
