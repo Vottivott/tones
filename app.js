@@ -26,6 +26,10 @@ const STORAGE_KEY = "toneRaindropProgress";
 const INPUT_IDLE_CLEAR_MS = 1000;
 const SPEECH_MIN_INTERVAL_MS = 320;
 const MAX_FRAME_DELTA = 0.08;
+const BIRD_TYPE_SPEED_MS = 22;
+const BIRD_TYPE_PAUSE_SHORT_MS = 90;
+const BIRD_TYPE_PAUSE_LONG_MS = 180;
+const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
 
 const MEDAL_TIERS = [
   { id: "bronze", label: "Bronze", score: 20, image: "medals/bronze.png" },
@@ -367,6 +371,7 @@ let zhVoice = null;
 let nextDropId = 0;
 let idleClearTimer = null;
 let lastSpeakAt = 0;
+let birdTypingTimer = null;
 
 function loadProgress() {
   const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null };
@@ -778,6 +783,52 @@ function buildBirdDialog({ score, newMedalId, isHighScore, unlockedNextLevel }) 
   return null;
 }
 
+function clearBirdTyping() {
+  if (birdTypingTimer) {
+    window.clearTimeout(birdTypingTimer);
+  }
+  birdTypingTimer = null;
+}
+
+function getBirdTypingDelay(character) {
+  if (character === "\n") {
+    return BIRD_TYPE_PAUSE_NEWLINE_MS;
+  }
+  if (character === "." || character === "!" || character === "?") {
+    return BIRD_TYPE_PAUSE_LONG_MS;
+  }
+  if (character === "," || character === ";" || character === ":") {
+    return BIRD_TYPE_PAUSE_SHORT_MS;
+  }
+  return BIRD_TYPE_SPEED_MS;
+}
+
+function typeBirdText(text) {
+  if (!birdText) {
+    return;
+  }
+  clearBirdTyping();
+  birdText.textContent = "";
+  let index = 0;
+
+  const step = () => {
+    if (!birdOverlay || birdOverlay.hidden) {
+      clearBirdTyping();
+      return;
+    }
+    birdText.textContent += text[index];
+    index += 1;
+    if (index >= text.length) {
+      birdTypingTimer = null;
+      return;
+    }
+    const delay = getBirdTypingDelay(text[index - 1]);
+    birdTypingTimer = window.setTimeout(step, delay);
+  };
+
+  birdTypingTimer = window.setTimeout(step, BIRD_TYPE_SPEED_MS);
+}
+
 function showBird(dialog) {
   if (!birdOverlay || !birdText || !birdTitle) {
     return;
@@ -786,7 +837,7 @@ function showBird(dialog) {
     return;
   }
   birdTitle.textContent = dialog.title;
-  birdText.textContent = dialog.text;
+  typeBirdText(dialog.text);
   if (birdMedal) {
     if (dialog.medalId) {
       const medal = MEDAL_LOOKUP.get(dialog.medalId);
@@ -807,6 +858,7 @@ function hideBird() {
   if (!birdOverlay) {
     return;
   }
+  clearBirdTyping();
   birdOverlay.hidden = true;
   document.body.classList.remove("bird-active");
   if (birdMedal) {
