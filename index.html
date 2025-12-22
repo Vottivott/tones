@@ -61,6 +61,9 @@
             aria-label="Type tone numbers"
             disabled
           />
+          <button id="backspaceBtn" class="backspace-btn" type="button" aria-label="Backspace">
+            ⌫
+          </button>
           <div id="keypad" class="keypad" role="group" aria-label="Tone keypad">
             <button class="keypad__key" type="button" data-digit="1" aria-label="Tone 1">1</button>
             <button class="keypad__key" type="button" data-digit="2" aria-label="Tone 2">2</button>
@@ -74,7 +77,7 @@
     <div id="birdOverlay" class="bird-overlay" hidden>
       <div class="bird-dialog" role="dialog" aria-modal="true" aria-live="polite">
         <img id="birdMedal" class="bird-dialog__medal" alt="" hidden />
-        <img class="bird-dialog__avatar" src="speaking_animation_white_bg.gif" alt="Professor crow speaking" />
+        <img class="bird-dialog__avatar" src="bird_square_strict.gif" alt="Professor crow speaking" />
         <div class="bird-dialog__content">
           <div id="birdTitle" class="bird-dialog__title"></div>
           <p id="birdText" class="bird-dialog__text"></p>

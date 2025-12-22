@@ -15,6 +15,7 @@ const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
 const keypad = document.getElementById("keypad");
 const keypadButtons = keypad ? Array.from(keypad.querySelectorAll(".keypad__key")) : [];
+const backspaceBtn = document.getElementById("backspaceBtn");
 const birdOverlay = document.getElementById("birdOverlay");
 const birdMedal = document.getElementById("birdMedal");
 const birdTitle = document.getElementById("birdTitle");
@@ -845,6 +846,9 @@ function updateInputEnabled() {
   keypadButtons.forEach((button) => {
     button.disabled = !state.running || !state.useKeypad;
   });
+  if (backspaceBtn) {
+    backspaceBtn.disabled = !state.running || !state.useKeypad;
+  }
 }
 
 function handleToneValue(value) {
@@ -874,6 +878,18 @@ function appendDigit(digit) {
     return;
   }
   const nextValue = sanitizeInput(`${toneInput.value}${digit}`);
+  toneInput.value = nextValue;
+  handleToneValue(nextValue);
+}
+
+function handleBackspace() {
+  if (!state.running) {
+    return;
+  }
+  if (!toneInput.value) {
+    return;
+  }
+  const nextValue = toneInput.value.slice(0, -1);
   toneInput.value = nextValue;
   handleToneValue(nextValue);
 }
@@ -1355,6 +1371,12 @@ keypadButtons.forEach((button) => {
     appendDigit(button.dataset.digit);
   });
 });
+
+if (backspaceBtn) {
+  backspaceBtn.addEventListener("click", () => {
+    handleBackspace();
+  });
+}
 
 levelSelect.addEventListener("change", () => {
   const selected = levelSelect.value;
