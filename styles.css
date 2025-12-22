@@ -350,11 +350,14 @@ img.medal {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   align-items: center;
-  width: 100%;
+  width: min(260px, 100%);
+  margin: 0 auto;
 }
 
 .game--keypad .keypad {
   grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
 }
 
 .game--running.game--keypad .hud {
