@@ -217,9 +217,7 @@ img.medal {
 }
 
 .game--running .status {
-  opacity: 0;
-  transform: translateY(calc(var(--status-translate) + 12px));
-  pointer-events: none;
+  display: none;
 }
 
 .input-panel {
