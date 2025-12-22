@@ -577,10 +577,17 @@ function setStatus(message) {
     }
     return;
   }
-  statusEl?.classList.remove("status--medals");
   statusMessageEl.textContent = message;
-  statusMessageEl.hidden = false;
-  medalRowEl.hidden = true;
+  if (state.useKeypad) {
+    statusEl?.classList.add("status--medals");
+    statusMessageEl.hidden = true;
+    medalRowEl.hidden = false;
+    renderMedals();
+  } else {
+    statusEl?.classList.remove("status--medals");
+    statusMessageEl.hidden = false;
+    medalRowEl.hidden = true;
+  }
   updateStatusPlacement();
 }
 

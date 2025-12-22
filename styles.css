@@ -177,6 +177,10 @@ body.bird-active {
   color: var(--ink-dim);
 }
 
+.status__message[hidden] {
+  display: none;
+}
+
 .game--running .status__message {
   display: none;
 }
@@ -188,6 +192,10 @@ body.bird-active {
   gap: 0.6rem;
   flex-wrap: wrap;
   width: 100%;
+}
+
+.status__medals[hidden] {
+  display: none;
 }
 
 .game--running .status__medals {
