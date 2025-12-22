@@ -366,13 +366,6 @@ img.medal {
   color: var(--sea-foam);
 }
 
-.bird-dialog__subtitle {
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-}
-
 .bird-dialog__medal {
   position: absolute;
   top: 18px;
@@ -522,6 +515,10 @@ input#toneInput:focus {
 @media (orientation: portrait) {
   .game {
     gap: 1.1rem;
+  }
+
+  .status__message {
+    display: none;
   }
 
   .status--medals {
