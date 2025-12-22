@@ -26,10 +26,6 @@
           <span class="hud__label">Lives</span>
           <span id="lives" class="hud__value">3</span>
         </div>
-        <div class="hud__block">
-          <span class="hud__label">Streak</span>
-          <span id="streak" class="hud__value">0</span>
-        </div>
         <div class="hud__block hud__block--select">
           <label class="hud__label" for="levelSelect">Level</label>
           <select id="levelSelect" class="hud__select" aria-label="Select level"></select>
@@ -42,7 +38,10 @@
 
       <section class="arena" aria-label="Tone raindrop playfield">
         <canvas id="gameCanvas" role="img" aria-label="Falling tone drops"></canvas>
-        <div id="status" class="status">Press Start to begin.</div>
+        <div id="status" class="status" role="status" aria-live="polite">
+          <div id="statusMessage" class="status__message" hidden></div>
+          <div id="medalRow" class="status__medals" aria-label="Medals for this level"></div>
+        </div>
       </section>
 
       <section class="input-panel" aria-label="Tone input">
@@ -71,6 +70,17 @@
         </div>
       </section>
     </main>
+
+    <div id="birdOverlay" class="bird-overlay" hidden>
+      <div class="bird-dialog" role="dialog" aria-modal="true" aria-live="polite">
+        <img class="bird-dialog__avatar" src="speaking_animation.gif" alt="Professor crow speaking" />
+        <div class="bird-dialog__content">
+          <div class="bird-dialog__title">Professor Corvus</div>
+          <p id="birdText" class="bird-dialog__text"></p>
+          <button id="birdClose" class="btn btn--bright" type="button">Continue</button>
+        </div>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>

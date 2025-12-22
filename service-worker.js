@@ -1,4 +1,4 @@
-const CACHE_NAME = "tone-raindrops-v1";
+const CACHE_NAME = "tone-raindrops-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,11 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./speaking_animation.gif",
+  "./medals/bronze.png",
+  "./medals/silver.png",
+  "./medals/gold.png",
+  "./medals/platinum.png",
 ];
 
 self.addEventListener("install", (event) => {

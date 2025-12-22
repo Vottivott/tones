@@ -4,8 +4,9 @@ const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 const highScoreEl = document.getElementById("highScore");
 const livesEl = document.getElementById("lives");
-const streakEl = document.getElementById("streak");
 const statusEl = document.getElementById("status");
+const statusMessageEl = document.getElementById("statusMessage");
+const medalRowEl = document.getElementById("medalRow");
 const gameRoot = document.querySelector(".game");
 const arena = document.querySelector(".arena");
 const toneInput = document.getElementById("toneInput");
@@ -14,11 +15,56 @@ const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
 const keypad = document.getElementById("keypad");
 const keypadButtons = keypad ? Array.from(keypad.querySelectorAll(".keypad__key")) : [];
+const birdOverlay = document.getElementById("birdOverlay");
+const birdText = document.getElementById("birdText");
+const birdCloseBtn = document.getElementById("birdClose");
 
 const STORAGE_KEY = "toneRaindropProgress";
 const INPUT_IDLE_CLEAR_MS = 1000;
 const SPEECH_MIN_INTERVAL_MS = 320;
 const MAX_FRAME_DELTA = 0.08;
+
+const MEDAL_TIERS = [
+  { id: "bronze", label: "Bronze", score: 20, image: "medals/bronze.png" },
+  { id: "silver", label: "Silver", score: 30, image: "medals/silver.png" },
+  { id: "gold", label: "Gold", score: 40, image: "medals/gold.png" },
+];
+const SECRET_MEDAL = { id: "platinum", label: "Platinum", score: 50, image: "medals/platinum.png" };
+const GOLD_SCORE = MEDAL_TIERS.find((tier) => tier.id === "gold").score;
+
+const HIGH_SCORE_LINES = [
+  "New high score. My brown sugar bubble tea approves.",
+  "High score achieved. Your ear is tuning fast.",
+  "A new high score. Keep your intonation steady.",
+  "High score! The tones are lining up cleanly.",
+];
+
+const MEDAL_LINES = {
+  bronze: [
+    "Bronze medal secured. A sturdy foundation of tones.",
+    "Bronze earned. My lecture notes finally have a worthy student.",
+  ],
+  silver: [
+    "Silver medal achieved. Your tones are shining.",
+    "Silver secured. The crow professor is impressed.",
+  ],
+  gold: [
+    "Gold medal achieved. Your intonation is soaring.",
+    "Gold secured. Even my bubble tea is applauding.",
+  ],
+  platinum: [
+    "A secret medal appears. Platinum! You found it.",
+    "Platinum unlocked. You have outflown the syllabus.",
+  ],
+};
+
+const INTONATION_TIPS = [
+  "Tip: Tone 1 stays high and steady.",
+  "Tip: Tone 2 rises like a question.",
+  "Tip: Tone 3 dips then rises. Keep it low before the turn.",
+  "Tip: Tone 4 falls sharply; keep it short and firm.",
+  "Tip: Tone 3 + Tone 3 becomes 2 + 3 in fast speech.",
+];
 
 const WORDS_BY_TONE = {
   "1": [
@@ -331,7 +377,6 @@ const state = {
   useKeypad: false,
   score: 0,
   lives: 3,
-  streak: 0,
   lastFrame: 0,
   lastSpawn: 0,
   baseSpawn: 1900,
@@ -475,14 +520,6 @@ function updateHighScore() {
   highScoreEl.textContent = getHighScore(state.levelId);
 }
 
-function levelReadyMessage(level) {
-  const nextLevel = getNextLevel(level.id);
-  if (nextLevel && !isLevelUnlocked(nextLevel.id)) {
-    return `Level ${level.label}. Reach ${nextLevel.unlockScore} to unlock ${nextLevel.label}.`;
-  }
-  return `Level ${level.label}. Press Start to begin.`;
-}
-
 function setLevel(levelId, { announce = true } = {}) {
   const level = getLevelById(levelId);
   state.levelId = level.id;
@@ -493,8 +530,9 @@ function setLevel(levelId, { announce = true } = {}) {
   saveProgress();
   updateHighScore();
   levelSelect.value = level.id;
+  renderMedals();
   if (announce) {
-    setStatus(levelReadyMessage(level));
+    showMedalStatus();
   }
 }
 
@@ -559,11 +597,136 @@ function resizeCanvas() {
 function updateHud() {
   scoreEl.textContent = state.score;
   livesEl.textContent = state.lives;
-  streakEl.textContent = state.streak;
 }
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  if (!statusMessageEl || !medalRowEl) {
+    if (statusEl) {
+      statusEl.textContent = message;
+    }
+    return;
+  }
+  statusMessageEl.textContent = message;
+  statusMessageEl.hidden = false;
+  medalRowEl.hidden = true;
+}
+
+function getMedalTierIds(score) {
+  const earned = new Set();
+  MEDAL_TIERS.forEach((tier) => {
+    if (score >= tier.score) {
+      earned.add(tier.id);
+    }
+  });
+  if (score >= SECRET_MEDAL.score) {
+    earned.add(SECRET_MEDAL.id);
+  }
+  return earned;
+}
+
+function pickHighestMedal(earnedIds) {
+  const ordered = [...MEDAL_TIERS.map((tier) => tier.id), SECRET_MEDAL.id];
+  for (let i = ordered.length - 1; i >= 0; i -= 1) {
+    if (earnedIds.has(ordered[i])) {
+      return ordered[i];
+    }
+  }
+  return null;
+}
+
+function renderMedals() {
+  if (!medalRowEl) {
+    return;
+  }
+  const highScore = getHighScore(state.levelId);
+  medalRowEl.replaceChildren();
+
+  MEDAL_TIERS.forEach((tier) => {
+    if (highScore >= tier.score) {
+      const img = document.createElement("img");
+      img.className = "medal";
+      img.src = tier.image;
+      img.alt = `${tier.label} medal (${tier.score})`;
+      medalRowEl.appendChild(img);
+    } else {
+      const empty = document.createElement("span");
+      empty.className = "medal medal--empty";
+      empty.setAttribute("aria-label", `${tier.label} medal (${tier.score}) not yet achieved`);
+      empty.title = `${tier.label} (${tier.score})`;
+      medalRowEl.appendChild(empty);
+    }
+  });
+
+  if (highScore >= SECRET_MEDAL.score) {
+    const img = document.createElement("img");
+    img.className = "medal";
+    img.src = SECRET_MEDAL.image;
+    img.alt = `${SECRET_MEDAL.label} medal (${SECRET_MEDAL.score})`;
+    medalRowEl.appendChild(img);
+  }
+}
+
+function showMedalStatus() {
+  if (!statusMessageEl || !medalRowEl) {
+    return;
+  }
+  statusMessageEl.hidden = true;
+  medalRowEl.hidden = false;
+  renderMedals();
+}
+
+function pickRandom(list) {
+  if (!list.length) {
+    return "";
+  }
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function buildBirdMessage({ score, newMedalId, isHighScore }) {
+  if (!isHighScore && !newMedalId) {
+    return "";
+  }
+  const lines = [];
+
+  if (isHighScore && score > GOLD_SCORE && score < SECRET_MEDAL.score) {
+    lines.push(
+      "You are past gold. I may need to mint a new medal if you keep this up. Pass the brown sugar bubble tea."
+    );
+  } else if (newMedalId) {
+    lines.push(pickRandom(MEDAL_LINES[newMedalId] || []));
+  } else if (isHighScore) {
+    lines.push(pickRandom(HIGH_SCORE_LINES));
+  }
+
+  if (isHighScore && Math.random() < 0.4) {
+    lines.push("With your brain and my persistence, I bet you'll go far!");
+  }
+
+  if (Math.random() < 0.35) {
+    lines.push(pickRandom(INTONATION_TIPS));
+  }
+
+  return lines.join("\n");
+}
+
+function showBird(message) {
+  if (!birdOverlay || !birdText) {
+    return;
+  }
+  if (!message) {
+    return;
+  }
+  birdText.textContent = message;
+  birdOverlay.hidden = false;
+  document.body.classList.add("bird-active");
+}
+
+function hideBird() {
+  if (!birdOverlay) {
+    return;
+  }
+  birdOverlay.hidden = true;
+  document.body.classList.remove("bird-active");
 }
 
 function focusInput() {
@@ -720,6 +883,7 @@ function startGame() {
     setStatus("No words loaded for this level.");
     return;
   }
+  hideBird();
   state.running = true;
   state.gameOver = false;
   state.lastFrame = 0;
@@ -755,9 +919,9 @@ function resetGame() {
   reveals.length = 0;
   translations.length = 0;
   clearInputTimer();
+  hideBird();
   state.score = 0;
   state.lives = 3;
-  state.streak = 0;
   state.lastFrame = 0;
   state.lastSpawn = 0;
   state.running = false;
@@ -768,7 +932,7 @@ function resetGame() {
   updateInputEnabled();
   updateHud();
   updateHighScore();
-  setStatus(levelReadyMessage(getLevelById(state.levelId)));
+  showMedalStatus();
   startBtn.textContent = "Start";
   levelSelect.disabled = false;
 }
@@ -794,9 +958,21 @@ function finalizeRun() {
   }
   let message = baseMessage;
   const previousHigh = getHighScore(state.levelId);
+  const previousMedals = getMedalTierIds(previousHigh);
+  let isHighScore = false;
   if (state.score > previousHigh) {
     progress.highscores[state.levelId] = state.score;
     message = `${message} New high score!`;
+    isHighScore = true;
+  }
+  const newHigh = Math.max(previousHigh, state.score);
+  const newMedals = getMedalTierIds(newHigh);
+  const addedMedals = new Set(
+    [...newMedals].filter((medalId) => !previousMedals.has(medalId))
+  );
+  const newMedalId = pickHighestMedal(addedMedals);
+  if (newMedalId) {
+    message = `${message} Medal earned!`;
   }
   const unlocked = maybeUnlockNextLevel();
   if (unlocked) {
@@ -804,7 +980,15 @@ function finalizeRun() {
   }
   saveProgress();
   updateHighScore();
+  renderMedals();
   setStatus(message);
+
+  const birdMessage = buildBirdMessage({
+    score: state.score,
+    newMedalId,
+    isHighScore,
+  });
+  showBird(birdMessage);
 }
 
 function endGame() {
@@ -883,7 +1067,6 @@ function clearDrop(drop) {
   }
   drops.splice(index, 1);
   state.score += 1;
-  state.streak += 1;
   updateHud();
   addSplash(drop.x, drop.y, drop.radius + 6);
   addTranslation(drop.x, drop.y, drop.sv, drop.radius);
@@ -896,7 +1079,6 @@ function missDrop(drop) {
   }
   drops.splice(index, 1);
   state.lives -= 1;
-  state.streak = 0;
   updateHud();
   addReveal(drop.x, Math.min(state.safeBottom - 12, drop.y), drop.tones, Math.max(16, drop.radius * 0.7));
   if (state.lives <= 0) {
@@ -1107,6 +1289,17 @@ replayBtn.addEventListener("click", () => {
   speak(lastSpoken.text, { force: true });
   setStatus(`Replaying: ${lastSpoken.text}`);
 });
+
+if (birdCloseBtn) {
+  birdCloseBtn.addEventListener("click", hideBird);
+}
+if (birdOverlay) {
+  birdOverlay.addEventListener("click", (event) => {
+    if (event.target === birdOverlay) {
+      hideBird();
+    }
+  });
+}
 
 keypadButtons.forEach((button) => {
   button.addEventListener("click", () => {
