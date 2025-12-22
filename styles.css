@@ -499,6 +499,9 @@ input#toneInput:focus {
 
   .status--medals {
     padding: 0.45rem 0.85rem;
+    background: none;
+    border: none;
+    box-shadow: none;
   }
 }
 
