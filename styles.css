@@ -330,6 +330,7 @@ img.medal {
 }
 
 .bird-dialog {
+  position: relative;
   display: grid;
   gap: 1.2rem;
   align-items: center;
@@ -363,6 +364,24 @@ img.medal {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--sea-foam);
+}
+
+.bird-dialog__subtitle {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.bird-dialog__medal {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  box-shadow: 0 6px 16px rgba(2, 16, 22, 0.35);
+  background: transparent;
 }
 
 .bird-dialog__text {
@@ -475,6 +494,13 @@ input#toneInput:focus {
   .bird-dialog__avatar {
     width: min(240px, 60vw);
     margin: 0 auto;
+  }
+
+  .bird-dialog__medal {
+    top: 12px;
+    left: 12px;
+    width: 46px;
+    height: 46px;
   }
 
 }

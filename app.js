@@ -16,6 +16,8 @@ const levelSelect = document.getElementById("levelSelect");
 const keypad = document.getElementById("keypad");
 const keypadButtons = keypad ? Array.from(keypad.querySelectorAll(".keypad__key")) : [];
 const birdOverlay = document.getElementById("birdOverlay");
+const birdMedal = document.getElementById("birdMedal");
+const birdTitle = document.getElementById("birdTitle");
 const birdText = document.getElementById("birdText");
 const birdCloseBtn = document.getElementById("birdClose");
 
@@ -30,41 +32,9 @@ const MEDAL_TIERS = [
   { id: "gold", label: "Gold", score: 40, image: "medals/gold.png" },
 ];
 const SECRET_MEDAL = { id: "platinum", label: "Platinum", score: 50, image: "medals/platinum.png" };
-const GOLD_SCORE = MEDAL_TIERS.find((tier) => tier.id === "gold").score;
-
-const HIGH_SCORE_LINES = [
-  "New high score. My brown sugar bubble tea approves.",
-  "High score achieved. Your ear is tuning fast.",
-  "A new high score. Keep your intonation steady.",
-  "High score! The tones are lining up cleanly.",
-];
-
-const MEDAL_LINES = {
-  bronze: [
-    "Bronze medal secured. A sturdy foundation of tones.",
-    "Bronze earned. My lecture notes finally have a worthy student.",
-  ],
-  silver: [
-    "Silver medal achieved. Your tones are shining.",
-    "Silver secured. The crow professor is impressed.",
-  ],
-  gold: [
-    "Gold medal achieved. Your intonation is soaring.",
-    "Gold secured. Even my bubble tea is applauding.",
-  ],
-  platinum: [
-    "A secret medal appears. Platinum! You found it.",
-    "Platinum unlocked. You have outflown the syllabus.",
-  ],
-};
-
-const INTONATION_TIPS = [
-  "Tip: Tone 1 stays high and steady.",
-  "Tip: Tone 2 rises like a question.",
-  "Tip: Tone 3 dips then rises. Keep it low before the turn.",
-  "Tip: Tone 4 falls sharply; keep it short and firm.",
-  "Tip: Tone 3 + Tone 3 becomes 2 + 3 in fast speech.",
-];
+const MEDAL_LOOKUP = new Map(
+  [...MEDAL_TIERS, SECRET_MEDAL].map((medal) => [medal.id, medal])
+);
 
 const WORDS_BY_TONE = {
   "1": [
@@ -727,48 +697,57 @@ function updateStatusPlacement() {
   statusEl.classList.toggle("status--centered", shouldCenter);
 }
 
-function pickRandom(list) {
-  if (!list.length) {
-    return "";
+function buildBirdDialog({ score, newMedalId, isHighScore }) {
+  if (newMedalId) {
+    const medal = MEDAL_LOOKUP.get(newMedalId);
+    let text = `Congratulations! You earned the ${medal.label.toLowerCase()} medal!`;
+    if (newMedalId === SECRET_MEDAL.id) {
+      text =
+        "I am EXTREMELY impressed, and I've created a new medal just for students like you - the platinum medal!";
+    }
+    return {
+      title: "YOU GOT A MEDAL!",
+      text,
+      medalId: newMedalId,
+    };
   }
-  return list[Math.floor(Math.random() * list.length)];
+
+  if (isHighScore) {
+    const nextTier = MEDAL_TIERS.find((tier) => score < tier.score);
+    const text = nextTier
+      ? `Congratulations! If you continue like this, you might get that ${nextTier.label.toLowerCase()} medal soon!`
+      : "Congratulations! If you continue to excel like this, I might have to create a NEW medal!";
+    return {
+      title: "NEW HIGHSCORE!",
+      text,
+      medalId: null,
+    };
+  }
+
+  return null;
 }
 
-function buildBirdMessage({ score, newMedalId, isHighScore }) {
-  if (!isHighScore && !newMedalId) {
-    return "";
-  }
-  const lines = [];
-
-  if (isHighScore && score > GOLD_SCORE && score < SECRET_MEDAL.score) {
-    lines.push(
-      "You are past gold. I may need to mint a new medal if you keep this up. Pass the brown sugar bubble tea."
-    );
-  } else if (newMedalId) {
-    lines.push(pickRandom(MEDAL_LINES[newMedalId] || []));
-  } else if (isHighScore) {
-    lines.push(pickRandom(HIGH_SCORE_LINES));
-  }
-
-  if (isHighScore && Math.random() < 0.4) {
-    lines.push("With your brain and my persistence, I bet you'll go far!");
-  }
-
-  if (Math.random() < 0.35) {
-    lines.push(pickRandom(INTONATION_TIPS));
-  }
-
-  return lines.join("\n");
-}
-
-function showBird(message) {
-  if (!birdOverlay || !birdText) {
+function showBird(dialog) {
+  if (!birdOverlay || !birdText || !birdTitle) {
     return;
   }
-  if (!message) {
+  if (!dialog) {
     return;
   }
-  birdText.textContent = message;
+  birdTitle.textContent = dialog.title;
+  birdText.textContent = dialog.text;
+  if (birdMedal) {
+    if (dialog.medalId) {
+      const medal = MEDAL_LOOKUP.get(dialog.medalId);
+      birdMedal.src = medal.image;
+      birdMedal.alt = `${medal.label} medal`;
+      birdMedal.hidden = false;
+    } else {
+      birdMedal.hidden = true;
+      birdMedal.removeAttribute("src");
+      birdMedal.alt = "";
+    }
+  }
   birdOverlay.hidden = false;
   document.body.classList.add("bird-active");
 }
@@ -779,6 +758,11 @@ function hideBird() {
   }
   birdOverlay.hidden = true;
   document.body.classList.remove("bird-active");
+  if (birdMedal) {
+    birdMedal.hidden = true;
+    birdMedal.removeAttribute("src");
+    birdMedal.alt = "";
+  }
 }
 
 function focusInput() {
@@ -1035,12 +1019,12 @@ function finalizeRun() {
   renderMedals();
   setStatus(message);
 
-  const birdMessage = buildBirdMessage({
+  const birdDialog = buildBirdDialog({
     score: state.score,
     newMedalId,
     isHighScore,
   });
-  showBird(birdMessage);
+  showBird(birdDialog);
 }
 
 function endGame() {
