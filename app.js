@@ -307,6 +307,10 @@ const DOUBLE_TONES_1X = DOUBLE_TONES.filter((tone) => tone.startsWith("1"));
 const DOUBLE_TONES_2X = DOUBLE_TONES.filter((tone) => tone.startsWith("2"));
 const DOUBLE_TONES_3X = DOUBLE_TONES.filter((tone) => tone.startsWith("3"));
 const DOUBLE_TONES_4X = DOUBLE_TONES.filter((tone) => tone.startsWith("4"));
+const DOUBLE_TONES_X1 = DOUBLE_TONES.filter((tone) => tone.endsWith("1"));
+const DOUBLE_TONES_X2 = DOUBLE_TONES.filter((tone) => tone.endsWith("2"));
+const DOUBLE_TONES_X3 = DOUBLE_TONES.filter((tone) => tone.endsWith("3"));
+const DOUBLE_TONES_X4 = DOUBLE_TONES.filter((tone) => tone.endsWith("4"));
 
 const LEVELS = [
   { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0, speedScale: 1, spawnScale: 1 },
@@ -314,6 +318,10 @@ const LEVELS = [
   { id: "2x", label: "2x", tones: DOUBLE_TONES_2X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   { id: "3x", label: "3x", tones: DOUBLE_TONES_3X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   { id: "4x", label: "4x", tones: DOUBLE_TONES_4X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  { id: "x1", label: "x1", tones: DOUBLE_TONES_X1, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  { id: "x2", label: "x2", tones: DOUBLE_TONES_X2, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  { id: "x3", label: "x3", tones: DOUBLE_TONES_X3, unlockScore: 20, speedScale: 1, spawnScale: 1 },
+  { id: "x4", label: "x4", tones: DOUBLE_TONES_X4, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   {
     id: "1-44-slow",
     label: "1-44 (Slow)",
@@ -427,7 +435,10 @@ function ensureBaseUnlocks() {
 
 function ensureBranchUnlocks() {
   if (progress.unlocked.has("4x")) {
-    if (unlockUpToLevel("1-44-slow")) {
+    let changed = false;
+    changed = unlockLevel("x1") || changed;
+    changed = unlockLevel("1-44-slow") || changed;
+    if (changed) {
       saveProgress();
     }
   }
@@ -470,6 +481,14 @@ function getNextLevel(levelId) {
     return null;
   }
   return LEVELS[index + 1] || null;
+}
+
+function unlockLevel(levelId) {
+  if (progress.unlocked.has(levelId)) {
+    return false;
+  }
+  progress.unlocked.add(levelId);
+  return true;
 }
 
 function unlockUpToLevel(levelId) {
@@ -1104,8 +1123,9 @@ function maybeUnlockNextLevel() {
     unlockedLevel = nextLevel;
   }
 
-  if (progress.unlocked.has("4x") && !isLevelUnlocked("1-44-slow")) {
-    unlockedAny = unlockUpToLevel("1-44-slow") || unlockedAny;
+  if (progress.unlocked.has("4x")) {
+    unlockedAny = unlockLevel("x1") || unlockedAny;
+    unlockedAny = unlockLevel("1-44-slow") || unlockedAny;
   }
 
   if (unlockedAny) {
