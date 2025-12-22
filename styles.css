@@ -161,6 +161,9 @@ body.bird-active {
   align-items: center;
   justify-content: center;
   padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  box-shadow: none;
 }
 
 .status--centered {
@@ -499,9 +502,6 @@ input#toneInput:focus {
 
   .status--medals {
     padding: 0.45rem 0.85rem;
-    background: none;
-    border: none;
-    box-shadow: none;
   }
 }
 
