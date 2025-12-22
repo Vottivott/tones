@@ -158,6 +158,10 @@ body.bird-active {
   color: var(--ink-dim);
 }
 
+.game--running .status__message {
+  display: none;
+}
+
 .status__medals {
   display: flex;
   align-items: center;
