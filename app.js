@@ -592,6 +592,7 @@ function resizeCanvas() {
   state.height = rect.height;
   state.safeBottom = rect.height - 6;
   updateInputMode();
+  updateStatusPlacement();
 }
 
 function updateHud() {
@@ -606,9 +607,11 @@ function setStatus(message) {
     }
     return;
   }
+  statusEl?.classList.remove("status--medals");
   statusMessageEl.textContent = message;
   statusMessageEl.hidden = false;
   medalRowEl.hidden = true;
+  updateStatusPlacement();
 }
 
 function getMedalTierIds(score) {
@@ -670,9 +673,58 @@ function showMedalStatus() {
   if (!statusMessageEl || !medalRowEl) {
     return;
   }
+  statusEl?.classList.add("status--medals");
   statusMessageEl.hidden = true;
   medalRowEl.hidden = false;
   renderMedals();
+  updateStatusPlacement();
+}
+
+function toPixels(value) {
+  if (!value) {
+    return 0;
+  }
+  const trimmed = value.trim();
+  const amount = Number.parseFloat(trimmed);
+  if (Number.isNaN(amount)) {
+    return 0;
+  }
+  if (trimmed.endsWith("rem")) {
+    const rootSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    return amount * rootSize;
+  }
+  if (trimmed.endsWith("vh")) {
+    return (amount / 100) * window.innerHeight;
+  }
+  if (trimmed.endsWith("vw")) {
+    return (amount / 100) * window.innerWidth;
+  }
+  return amount;
+}
+
+function getStatusInsetPx() {
+  if (!statusEl) {
+    return 0;
+  }
+  const insetValue = getComputedStyle(statusEl).getPropertyValue("--status-inset");
+  return toPixels(insetValue);
+}
+
+function updateStatusPlacement() {
+  if (!statusEl || !arena || statusEl.hasAttribute("hidden")) {
+    return;
+  }
+  const arenaRect = arena.getBoundingClientRect();
+  if (!arenaRect.height) {
+    return;
+  }
+  const statusRect = statusEl.getBoundingClientRect();
+  if (!statusRect.height) {
+    return;
+  }
+  const insetPx = getStatusInsetPx();
+  const shouldCenter = statusRect.height + insetPx > arenaRect.height;
+  statusEl.classList.toggle("status--centered", shouldCenter);
 }
 
 function pickRandom(list) {

@@ -138,8 +138,10 @@ body.bird-active {
 }
 
 .status {
+  --status-inset: 2rem;
+  --status-translate: 0px;
   position: absolute;
-  inset: auto 2rem 2rem 2rem;
+  inset: auto var(--status-inset) var(--status-inset) var(--status-inset);
   display: grid;
   gap: 0.6rem;
   padding: 0.75rem 1rem;
@@ -149,8 +151,22 @@ body.bird-active {
   font-size: 0.95rem;
   color: var(--ink-dim);
   box-shadow: var(--shadow);
+  transform: translateY(var(--status-translate));
   animation: floatIn 1s ease-out both 0.2s;
   transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.status--medals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1rem;
+}
+
+.status--centered {
+  top: 50%;
+  bottom: auto;
+  --status-translate: -50%;
 }
 
 .status__message {
@@ -168,6 +184,7 @@ body.bird-active {
   justify-content: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .game--running .status__medals {
@@ -197,7 +214,7 @@ img.medal {
 
 .game--running .status {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(calc(var(--status-translate) + 12px));
   pointer-events: none;
 }
 
@@ -415,11 +432,11 @@ input#toneInput:focus {
 @keyframes floatIn {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(calc(var(--status-translate) + 16px));
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(var(--status-translate));
   }
 }
 
@@ -466,11 +483,21 @@ input#toneInput:focus {
   }
 
   .status {
-    inset: auto 1rem 1rem 1rem;
+    --status-inset: 1rem;
   }
 
   input#toneInput {
     width: 100%;
+  }
+}
+
+@media (orientation: portrait) {
+  .game {
+    gap: 1.1rem;
+  }
+
+  .status--medals {
+    padding: 0.45rem 0.85rem;
   }
 }
 
