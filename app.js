@@ -952,9 +952,15 @@ function buildBirdDialog({ score, newMedalId, isHighScore, unlockedNextLevel }) 
 
   if (isHighScore) {
     const nextTier = MEDAL_TIERS.find((tier) => score < tier.score);
-    const text = nextTier
-      ? `Congratulations! If you continue like this, you might get that ${nextTier.label.toLowerCase()} medal soon!`
-      : "Congratulations! If you continue to excel like this, I might have to create a NEW medal!";
+    let text = "";
+    if (score >= SECRET_MEDAL.score) {
+      text =
+        "Congratulations! I am proud to see you keep pushing the limits even after the highest reward!";
+    } else if (nextTier) {
+      text = `Congratulations! If you continue like this, you might get that ${nextTier.label.toLowerCase()} medal soon!`;
+    } else {
+      text = "Congratulations! If you continue to excel like this, I might have to create a NEW medal!";
+    }
     return {
       title: "NEW HIGHSCORE!",
       text,
@@ -1223,7 +1229,11 @@ function appendDigit(digit) {
   if (!state.running) {
     return;
   }
-  const nextValue = sanitizeInput(`${toneInput.value}${digit}`);
+  const currentValue = toneInput.value;
+  const nextValue = sanitizeInput(`${currentValue}${digit}`);
+  if (nextValue === currentValue) {
+    return;
+  }
   toneInput.value = nextValue;
   handleToneValue(nextValue);
 }
@@ -1426,6 +1436,7 @@ function endGame() {
   state.gameOver = true;
   state.finalReveal = false;
   clearInputTimer();
+  toneInput.value = "";
   gameRoot?.classList.remove("game--running");
   gameRoot?.classList.remove("game--final-reveal");
   hudEl?.removeAttribute("hidden");

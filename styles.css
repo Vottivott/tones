@@ -169,6 +169,7 @@ body.bird-active {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 56px;
   padding: 0.6rem 1rem;
   background: none;
   border: none;
