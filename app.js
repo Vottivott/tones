@@ -548,6 +548,7 @@ function isLevelUnlocked(levelId) {
 }
 
 function buildLevelMedals(container, score) {
+  const hasPlatinum = score >= SECRET_MEDAL.score;
   MEDAL_TIERS.forEach((tier) => {
     if (score >= tier.score) {
       const img = document.createElement("img");
@@ -570,6 +571,11 @@ function buildLevelMedals(container, score) {
     img.src = SECRET_MEDAL.image;
     img.alt = `${SECRET_MEDAL.label} medal (${SECRET_MEDAL.score})`;
     container.appendChild(img);
+  } else {
+    const spacer = document.createElement("span");
+    spacer.className = "medal medal--ghost";
+    spacer.setAttribute("aria-hidden", "true");
+    container.appendChild(spacer);
   }
 }
 
