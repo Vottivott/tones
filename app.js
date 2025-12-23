@@ -10,6 +10,9 @@ const medalRowEl = document.getElementById("medalRow");
 const gameRoot = document.querySelector(".game");
 const arena = document.querySelector(".arena");
 const toneInput = document.getElementById("toneInput");
+const toneHeadingMode = document.getElementById("toneHeadingMode");
+const toneModeLabel = document.getElementById("toneModeLabel");
+const toneExample = document.getElementById("toneExample");
 const startBtn = document.getElementById("startBtn");
 const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
@@ -21,6 +24,9 @@ const birdMedal = document.getElementById("birdMedal");
 const birdTitle = document.getElementById("birdTitle");
 const birdText = document.getElementById("birdText");
 const birdCloseBtn = document.getElementById("birdClose");
+const levelOverlay = document.getElementById("levelOverlay");
+const levelList = document.getElementById("levelList");
+const levelCloseBtn = document.getElementById("levelClose");
 
 const STORAGE_KEY = "toneRaindropProgress";
 const INPUT_IDLE_CLEAR_MS = 1000;
@@ -30,6 +36,15 @@ const BIRD_TYPE_SPEED_MS = 22;
 const BIRD_TYPE_PAUSE_SHORT_MS = 90;
 const BIRD_TYPE_PAUSE_LONG_MS = 180;
 const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
+const USE_NUMBER_LABELS =
+  new URLSearchParams(window.location.search).get("numbers") !== "0";
+
+const TONE_SYMBOLS = {
+  "1": "ˉ",
+  "2": "ˊ",
+  "3": "ˇ",
+  "4": "ˋ",
+};
 
 const MEDAL_TIERS = [
   { id: "bronze", label: "Bronze", score: 20, image: "medals/bronze.png" },
@@ -524,6 +539,67 @@ function isLevelUnlocked(levelId) {
   return progress.unlocked.has(levelId);
 }
 
+function buildLevelMedals(container, score) {
+  MEDAL_TIERS.forEach((tier) => {
+    if (score >= tier.score) {
+      const img = document.createElement("img");
+      img.className = "medal";
+      img.src = tier.image;
+      img.alt = `${tier.label} medal (${tier.score})`;
+      container.appendChild(img);
+    } else {
+      const empty = document.createElement("span");
+      empty.className = "medal medal--empty";
+      empty.setAttribute("aria-label", `${tier.label} medal (${tier.score}) not yet achieved`);
+      empty.title = `${tier.label} (${tier.score})`;
+      container.appendChild(empty);
+    }
+  });
+
+  if (score >= SECRET_MEDAL.score) {
+    const img = document.createElement("img");
+    img.className = "medal";
+    img.src = SECRET_MEDAL.image;
+    img.alt = `${SECRET_MEDAL.label} medal (${SECRET_MEDAL.score})`;
+    container.appendChild(img);
+  }
+}
+
+function renderLevelOverlay() {
+  if (!levelList) {
+    return;
+  }
+  levelList.replaceChildren();
+  LEVELS.forEach((level) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "level-card";
+    const unlocked = isLevelUnlocked(level.id);
+    card.disabled = !unlocked;
+    if (level.id === state.levelId) {
+      card.classList.add("is-selected");
+    }
+
+    const name = document.createElement("div");
+    name.className = "level-card__name";
+    name.textContent = level.label;
+
+    const medals = document.createElement("div");
+    medals.className = "level-card__medals";
+    buildLevelMedals(medals, getHighScore(level.id));
+
+    card.append(name, medals);
+    if (unlocked) {
+      card.addEventListener("click", () => {
+        setLevel(level.id, { announce: false });
+        resetGame();
+        closeLevelOverlay();
+      });
+    }
+    levelList.appendChild(card);
+  });
+}
+
 function renderLevelOptions() {
   levelSelect.innerHTML = "";
   LEVELS.forEach((level) => {
@@ -543,6 +619,8 @@ function renderLevelOptions() {
       levelSelect.value = firstUnlocked.id;
     }
   }
+
+  renderLevelOverlay();
 }
 
 function getHighScore(levelId) {
@@ -887,6 +965,23 @@ function hideBird() {
   }
 }
 
+function openLevelOverlay() {
+  if (!levelOverlay) {
+    return;
+  }
+  renderLevelOverlay();
+  levelOverlay.hidden = false;
+  document.body.classList.add("level-overlay-active");
+}
+
+function closeLevelOverlay() {
+  if (!levelOverlay) {
+    return;
+  }
+  levelOverlay.hidden = true;
+  document.body.classList.remove("level-overlay-active");
+}
+
 function focusInput() {
   if (toneInput.hasAttribute("disabled") || state.useKeypad) {
     return;
@@ -922,6 +1017,46 @@ function sanitizeInput(value) {
   return value.replace(/[^1-4]/g, "").slice(0, 2);
 }
 
+function formatToneDigit(digit) {
+  if (USE_NUMBER_LABELS) {
+    return digit;
+  }
+  return TONE_SYMBOLS[digit] || digit;
+}
+
+function formatToneString(tones) {
+  if (USE_NUMBER_LABELS) {
+    return tones;
+  }
+  return tones
+    .split("")
+    .map((digit) => formatToneDigit(digit))
+    .join("");
+}
+
+function updateToneLabels() {
+  keypadButtons.forEach((button) => {
+    const digit = button.dataset.digit;
+    const label = formatToneDigit(digit);
+    button.textContent = label;
+    button.setAttribute(
+      "aria-label",
+      USE_NUMBER_LABELS ? `Tone ${digit}` : `Tone ${digit} (${label})`
+    );
+  });
+  if (toneModeLabel) {
+    toneModeLabel.textContent = USE_NUMBER_LABELS ? "numbers" : "symbols";
+  }
+  if (toneHeadingMode) {
+    toneHeadingMode.textContent = USE_NUMBER_LABELS ? "numbers" : "symbols";
+  }
+  if (toneExample) {
+    toneExample.textContent = USE_NUMBER_LABELS
+      ? "23"
+      : `${formatToneDigit("2")}${formatToneDigit("3")}`;
+  }
+}
+
 function isPortraitLike() {
   return window.matchMedia("(orientation: portrait)").matches || window.innerHeight > window.innerWidth;
 }
@@ -940,6 +1075,7 @@ function updateInputMode() {
     toneInput.setAttribute("inputmode", "numeric");
     toneInput.removeAttribute("readonly");
     toneInput.removeAttribute("tabindex");
+    closeLevelOverlay();
   }
   updateInputEnabled();
 }
@@ -1198,6 +1334,7 @@ function addReveal(x, y, tones, size) {
     x,
     y,
     tones,
+    display: formatToneString(tones),
     size,
     life: 0,
   });
@@ -1270,7 +1407,7 @@ function missDrop(drop) {
   if (state.lives <= 0) {
     endGame();
   } else {
-    setStatus(`Missed: ${drop.tones}`);
+    setStatus(`Missed: ${formatToneString(drop.tones)}`);
   }
 }
 
@@ -1351,9 +1488,9 @@ function drawReveals(delta) {
     ctx.textBaseline = "middle";
     ctx.strokeStyle = `rgba(3, 26, 36, ${alpha})`;
     ctx.lineWidth = 3;
-    ctx.strokeText(reveal.tones, reveal.x, y);
+    ctx.strokeText(reveal.display || reveal.tones, reveal.x, y);
     ctx.fillStyle = `rgba(255, 92, 77, ${alpha})`;
-    ctx.fillText(reveal.tones, reveal.x, y);
+    ctx.fillText(reveal.display || reveal.tones, reveal.x, y);
     ctx.restore();
   }
 }
@@ -1499,6 +1636,23 @@ if (backspaceBtn) {
   });
 }
 
+if (levelSelect) {
+  levelSelect.addEventListener("pointerdown", (event) => {
+    if (!state.useKeypad || levelSelect.disabled) {
+      return;
+    }
+    event.preventDefault();
+    openLevelOverlay();
+  });
+  levelSelect.addEventListener("click", (event) => {
+    if (!state.useKeypad || levelSelect.disabled) {
+      return;
+    }
+    event.preventDefault();
+    openLevelOverlay();
+  });
+}
+
 levelSelect.addEventListener("change", () => {
   const selected = levelSelect.value;
   if (!isLevelUnlocked(selected)) {
@@ -1508,6 +1662,18 @@ levelSelect.addEventListener("change", () => {
   setLevel(selected, { announce: false });
   resetGame();
 });
+
+if (levelCloseBtn) {
+  levelCloseBtn.addEventListener("click", closeLevelOverlay);
+}
+
+if (levelOverlay) {
+  levelOverlay.addEventListener("click", (event) => {
+    if (event.target === levelOverlay) {
+      closeLevelOverlay();
+    }
+  });
+}
 
 canvas.addEventListener("pointerdown", handlePointer);
 window.addEventListener("resize", resizeCanvas);
@@ -1525,6 +1691,7 @@ if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
 
 resizeCanvas();
 renderLevelOptions();
+updateToneLabels();
 const initialLevel =
   progress.lastLevel && isLevelUnlocked(progress.lastLevel) ? progress.lastLevel : LEVELS[0].id;
 setLevel(initialLevel, { announce: false });

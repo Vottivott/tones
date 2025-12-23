@@ -46,8 +46,11 @@
 
       <section class="input-panel" aria-label="Tone input">
         <div class="input-panel__text">
-          <h1>Listen and type the tone numbers.</h1>
-          <p>Choose a level, then type tone numbers like <strong>23</strong>. Correct tones clear instantly with a Swedish hint.</p>
+          <h1>Listen and type the tone <span id="toneHeadingMode">numbers</span>.</h1>
+          <p>
+            Choose a level, then type tone <span id="toneModeLabel">numbers</span> like
+            <strong id="toneExample">23</strong>. Correct tones clear instantly with a Swedish hint.
+          </p>
         </div>
         <div class="input-panel__controls">
           <input
@@ -83,6 +86,16 @@
           <p id="birdText" class="bird-dialog__text"></p>
           <button id="birdClose" class="btn btn--bright" type="button">Continue</button>
         </div>
+      </div>
+    </div>
+
+    <div id="levelOverlay" class="level-overlay" hidden>
+      <div class="level-dialog" role="dialog" aria-modal="true" aria-label="Choose level">
+        <div class="level-dialog__header">
+          <div class="level-dialog__title">Choose level</div>
+          <button id="levelClose" class="btn btn--ghost" type="button">Close</button>
+        </div>
+        <div id="levelList" class="level-list"></div>
       </div>
     </div>
 
