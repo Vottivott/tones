@@ -1817,6 +1817,15 @@ if (levelCloseBtn) {
   levelCloseBtn.addEventListener("click", closeLevelOverlay);
 }
 
+if (medalRowEl) {
+  medalRowEl.addEventListener("click", () => {
+    if (!state.useKeypad || levelSelect.disabled) {
+      return;
+    }
+    openLevelOverlay();
+  });
+}
+
 
 canvas.addEventListener("pointerdown", handlePointer);
 window.addEventListener("resize", resizeCanvas);
