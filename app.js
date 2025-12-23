@@ -399,6 +399,7 @@ let birdTypingTimer = null;
 let finalRevealFrame = null;
 let finalRevealLastFrame = 0;
 let levelOverlayOpenedAt = 0;
+let levelOverlayIgnoreClick = false;
 
 function loadProgress() {
   const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null };
@@ -979,6 +980,7 @@ function openLevelOverlay() {
   renderLevelOverlay();
   levelOverlay.hidden = false;
   levelOverlayOpenedAt = performance.now();
+  levelOverlayIgnoreClick = true;
   document.body.classList.add("level-overlay-active");
 }
 
@@ -988,6 +990,7 @@ function closeLevelOverlay() {
   }
   levelOverlay.hidden = true;
   document.body.classList.remove("level-overlay-active");
+  levelOverlayIgnoreClick = false;
 }
 
 function focusInput() {
@@ -1201,6 +1204,7 @@ function startGame() {
     return;
   }
   hideBird();
+  gameRoot?.classList.remove("game--final-reveal");
   state.running = true;
   state.gameOver = false;
   state.lastFrame = 0;
@@ -1246,6 +1250,7 @@ function resetGame() {
   state.finalReveal = false;
   state.pauseUsed = false;
   gameRoot?.classList.remove("game--running");
+  gameRoot?.classList.remove("game--final-reveal");
   statusEl.removeAttribute("hidden");
   updateInputEnabled();
   updateHud();
@@ -1328,6 +1333,7 @@ function endGame() {
   state.finalReveal = false;
   clearInputTimer();
   gameRoot?.classList.remove("game--running");
+  gameRoot?.classList.remove("game--final-reveal");
   updateInputEnabled();
   startBtn.textContent = "Restart";
   levelSelect.disabled = false;
@@ -1402,7 +1408,9 @@ function startFinalReveal() {
   state.running = false;
   clearInputTimer();
   gameRoot?.classList.remove("game--running");
+  gameRoot?.classList.add("game--final-reveal");
   updateInputEnabled();
+  statusEl.setAttribute("hidden", "hidden");
 
   const remainingDrops = drops.splice(0, drops.length);
   remainingDrops.forEach((drop) => {
@@ -1735,7 +1743,8 @@ if (levelCloseBtn) {
 if (levelOverlay) {
   levelOverlay.addEventListener("click", (event) => {
     if (event.target === levelOverlay) {
-      if (performance.now() - levelOverlayOpenedAt < 250) {
+      if (levelOverlayIgnoreClick) {
+        levelOverlayIgnoreClick = false;
         return;
       }
       closeLevelOverlay();

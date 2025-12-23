@@ -228,6 +228,10 @@ img.medal {
   display: none;
 }
 
+.game--final-reveal .status {
+  display: none;
+}
+
 .input-panel {
   display: flex;
   align-items: center;
@@ -365,6 +369,14 @@ img.medal {
 }
 
 .game--running.game--keypad .input-panel__text {
+  display: none;
+}
+
+.game--final-reveal.game--keypad .hud {
+  display: none;
+}
+
+.game--final-reveal.game--keypad .input-panel__text {
   display: none;
 }
 
