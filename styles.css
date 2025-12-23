@@ -773,11 +773,29 @@ input#toneInput:focus {
 
   .game--running.game--keypad {
     gap: 0.8rem;
-    padding-bottom: 1.2rem;
+    padding-bottom: 0.8rem;
+    height: 100svh;
+    min-height: 100svh;
   }
 
   .game--running.game--keypad .input-panel {
-    padding: 0.85rem 1.2rem;
+    padding: 0.7rem 1.1rem;
+  }
+
+  .game--running.game--keypad input#toneInput {
+    padding: 0.55rem 0.6rem;
+    font-size: 1.05rem;
+  }
+
+  .game--running.game--keypad .backspace-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
+  }
+
+  .game--running.game--keypad .keypad__key {
+    min-height: 50px;
+    font-size: 1.45rem;
   }
 
   .status__message {
