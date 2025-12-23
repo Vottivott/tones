@@ -372,11 +372,11 @@ img.medal {
   display: none;
 }
 
-.game--final-reveal.game--keypad .hud {
+.game--final-reveal .hud {
   display: none;
 }
 
-.game--final-reveal.game--keypad .input-panel__text {
+.game--final-reveal .input-panel__text {
   display: none;
 }
 

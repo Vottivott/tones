@@ -1740,17 +1740,6 @@ if (levelCloseBtn) {
   levelCloseBtn.addEventListener("click", closeLevelOverlay);
 }
 
-if (levelOverlay) {
-  levelOverlay.addEventListener("click", (event) => {
-    if (event.target === levelOverlay) {
-      if (levelOverlayIgnoreClick) {
-        levelOverlayIgnoreClick = false;
-        return;
-      }
-      closeLevelOverlay();
-    }
-  });
-}
 
 canvas.addEventListener("pointerdown", handlePointer);
 window.addEventListener("resize", resizeCanvas);
