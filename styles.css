@@ -109,6 +109,15 @@ body.bird-active {
   background-repeat: no-repeat;
 }
 
+.hud__select--button {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+}
+
 .hud__select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -305,6 +314,14 @@ img.medal {
   display: grid;
   width: min(260px, 100%);
   margin: 0 auto;
+}
+
+.game--keypad .hud__select--native {
+  display: none;
+}
+
+.game--keypad .hud__select--button {
+  display: inline-flex;
 }
 
 .keypad__key {

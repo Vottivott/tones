@@ -8,6 +8,8 @@ const statusEl = document.getElementById("status");
 const statusMessageEl = document.getElementById("statusMessage");
 const medalRowEl = document.getElementById("medalRow");
 const gameRoot = document.querySelector(".game");
+const hudEl = document.querySelector(".hud");
+const inputPanelTextEl = document.querySelector(".input-panel__text");
 const arena = document.querySelector(".arena");
 const toneInput = document.getElementById("toneInput");
 const toneHeadingMode = document.getElementById("toneHeadingMode");
@@ -16,6 +18,7 @@ const toneExample = document.getElementById("toneExample");
 const startBtn = document.getElementById("startBtn");
 const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
+const levelPickerBtn = document.getElementById("levelPickerBtn");
 const keypad = document.getElementById("keypad");
 const keypadButtons = keypad ? Array.from(keypad.querySelectorAll(".keypad__key")) : [];
 const backspaceBtn = document.getElementById("backspaceBtn");
@@ -40,10 +43,10 @@ const USE_NUMBER_LABELS =
   new URLSearchParams(window.location.search).get("numbers") !== "0";
 
 const TONE_SYMBOLS = {
-  "1": "ˉ",
-  "2": "ˊ",
-  "3": "ˇ",
-  "4": "ˋ",
+  "1": "─",
+  "2": "╱",
+  "3": "∨",
+  "4": "╲",
 };
 
 const MEDAL_TIERS = [
@@ -626,6 +629,7 @@ function renderLevelOptions() {
   }
 
   renderLevelOverlay();
+  updateLevelPickerButton();
 }
 
 function getHighScore(levelId) {
@@ -634,6 +638,17 @@ function getHighScore(levelId) {
 
 function updateHighScore() {
   highScoreEl.textContent = getHighScore(state.levelId);
+}
+
+function updateLevelPickerButton() {
+  if (!levelPickerBtn || !levelSelect) {
+    return;
+  }
+  const levelId = levelSelect.value || state.levelId;
+  const level = getLevelById(levelId);
+  levelPickerBtn.textContent = level ? level.label : "Level";
+  levelPickerBtn.setAttribute("aria-label", `Level ${level ? level.label : ""}`.trim());
+  levelPickerBtn.disabled = levelSelect.disabled;
 }
 
 function setLevel(levelId, { announce = true } = {}) {
@@ -646,6 +661,7 @@ function setLevel(levelId, { announce = true } = {}) {
   saveProgress();
   updateHighScore();
   levelSelect.value = level.id;
+  updateLevelPickerButton();
   renderMedals();
   if (announce) {
     showMedalStatus();
@@ -1105,6 +1121,7 @@ function updateInputEnabled() {
   if (backspaceBtn) {
     backspaceBtn.disabled = !state.running || !state.useKeypad;
   }
+  updateLevelPickerButton();
 }
 
 function handleToneValue(value) {
@@ -1204,6 +1221,8 @@ function startGame() {
     return;
   }
   hideBird();
+  hudEl?.removeAttribute("hidden");
+  inputPanelTextEl?.removeAttribute("hidden");
   gameRoot?.classList.remove("game--final-reveal");
   state.running = true;
   state.gameOver = false;
@@ -1211,6 +1230,7 @@ function startGame() {
   state.lastSpawn = performance.now();
   gameRoot?.classList.add("game--running");
   statusEl.setAttribute("hidden", "hidden");
+  levelSelect.disabled = true;
   updateInputEnabled();
   setStatus(
     state.pauseUsed
@@ -1218,7 +1238,6 @@ function startGame() {
       : "Drops incoming... type the tone numbers."
   );
   startBtn.textContent = "Pause";
-  levelSelect.disabled = true;
   focusInput();
   requestAnimationFrame(tick);
 }
@@ -1241,6 +1260,8 @@ function resetGame() {
   translations.length = 0;
   clearInputTimer();
   hideBird();
+  hudEl?.removeAttribute("hidden");
+  inputPanelTextEl?.removeAttribute("hidden");
   state.score = 0;
   state.lives = 3;
   state.lastFrame = 0;
@@ -1251,13 +1272,13 @@ function resetGame() {
   state.pauseUsed = false;
   gameRoot?.classList.remove("game--running");
   gameRoot?.classList.remove("game--final-reveal");
+  levelSelect.disabled = false;
   statusEl.removeAttribute("hidden");
   updateInputEnabled();
   updateHud();
   updateHighScore();
   showMedalStatus();
   startBtn.textContent = "Start";
-  levelSelect.disabled = false;
 }
 
 function maybeUnlockNextLevel() {
@@ -1334,9 +1355,11 @@ function endGame() {
   clearInputTimer();
   gameRoot?.classList.remove("game--running");
   gameRoot?.classList.remove("game--final-reveal");
+  hudEl?.removeAttribute("hidden");
+  inputPanelTextEl?.removeAttribute("hidden");
+  levelSelect.disabled = false;
   updateInputEnabled();
   startBtn.textContent = "Restart";
-  levelSelect.disabled = false;
   statusEl.removeAttribute("hidden");
   finalizeRun();
 }
@@ -1411,6 +1434,8 @@ function startFinalReveal() {
   gameRoot?.classList.add("game--final-reveal");
   updateInputEnabled();
   statusEl.setAttribute("hidden", "hidden");
+  hudEl?.setAttribute("hidden", "hidden");
+  inputPanelTextEl?.setAttribute("hidden", "hidden");
 
   const remainingDrops = drops.splice(0, drops.length);
   remainingDrops.forEach((drop) => {
@@ -1709,32 +1734,26 @@ if (backspaceBtn) {
   });
 }
 
-if (levelSelect) {
-  levelSelect.addEventListener("pointerdown", (event) => {
-    if (!state.useKeypad || levelSelect.disabled) {
+if (levelPickerBtn) {
+  levelPickerBtn.addEventListener("click", () => {
+    if (!state.useKeypad || levelPickerBtn.disabled) {
       return;
     }
-    event.preventDefault();
-    openLevelOverlay();
-  });
-  levelSelect.addEventListener("click", (event) => {
-    if (!state.useKeypad || levelSelect.disabled) {
-      return;
-    }
-    event.preventDefault();
     openLevelOverlay();
   });
 }
 
-levelSelect.addEventListener("change", () => {
-  const selected = levelSelect.value;
-  if (!isLevelUnlocked(selected)) {
-    levelSelect.value = state.levelId;
-    return;
-  }
-  setLevel(selected, { announce: false });
-  resetGame();
-});
+if (levelSelect) {
+  levelSelect.addEventListener("change", () => {
+    const selected = levelSelect.value;
+    if (!isLevelUnlocked(selected)) {
+      levelSelect.value = state.levelId;
+      return;
+    }
+    setLevel(selected, { announce: false });
+    resetGame();
+  });
+}
 
 if (levelCloseBtn) {
   levelCloseBtn.addEventListener("click", closeLevelOverlay);
