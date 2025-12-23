@@ -509,6 +509,45 @@ body.bird-active .game {
   gap: 1rem;
 }
 
+.level-dialog__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(145, 229, 246, 0.25);
+  background: rgba(3, 26, 36, 0.55);
+}
+
+.mode-toggle__btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-dim);
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.mode-toggle__btn.is-active {
+  background: rgba(145, 229, 246, 0.35);
+  color: var(--ink);
+}
+
+.mode-toggle__btn:focus-visible {
+  outline: 2px solid rgba(145, 229, 246, 0.6);
+  outline-offset: 2px;
+}
+
 .level-dialog__title {
   font-size: 1.1rem;
   font-weight: 700;

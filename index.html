@@ -96,7 +96,13 @@
       <div class="level-dialog" role="dialog" aria-modal="true" aria-label="Choose level">
         <div class="level-dialog__header">
           <div class="level-dialog__title">Choose level</div>
-          <button id="levelClose" class="btn btn--ghost" type="button">Close</button>
+          <div class="level-dialog__actions">
+            <div class="mode-toggle" role="group" aria-label="Tone display">
+              <button class="mode-toggle__btn" type="button" data-mode="numbers">123</button>
+              <button class="mode-toggle__btn" type="button" data-mode="symbols">Symbols</button>
+            </div>
+            <button id="levelClose" class="btn btn--ghost" type="button">Close</button>
+          </div>
         </div>
         <div id="levelList" class="level-list"></div>
       </div>

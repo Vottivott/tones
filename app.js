@@ -30,6 +30,7 @@ const birdCloseBtn = document.getElementById("birdClose");
 const levelOverlay = document.getElementById("levelOverlay");
 const levelList = document.getElementById("levelList");
 const levelCloseBtn = document.getElementById("levelClose");
+const toneModeButtons = Array.from(document.querySelectorAll(".mode-toggle__btn"));
 
 const STORAGE_KEY = "toneRaindropProgress";
 const INPUT_IDLE_CLEAR_MS = 1000;
@@ -39,8 +40,8 @@ const BIRD_TYPE_SPEED_MS = 22;
 const BIRD_TYPE_PAUSE_SHORT_MS = 90;
 const BIRD_TYPE_PAUSE_LONG_MS = 180;
 const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
-const USE_NUMBER_LABELS =
-  new URLSearchParams(window.location.search).get("numbers") !== "0";
+
+const TONE_MODE_OVERRIDE = getToneModeOverride();
 
 const TONE_SYMBOLS = {
   "1": "─",
@@ -363,6 +364,10 @@ LEVELS.forEach((level) => {
 });
 
 const progress = loadProgress();
+if (TONE_MODE_OVERRIDE) {
+  progress.toneMode = TONE_MODE_OVERRIDE;
+  saveProgress();
+}
 normalizeProgress();
 ensureBaseUnlocks();
 ensureBranchUnlocks();
@@ -378,6 +383,7 @@ const state = {
   pauseUsed: false,
   finalReveal: false,
   useKeypad: false,
+  useNumberLabels: progress.toneMode !== "symbols",
   score: 0,
   lives: 3,
   lastFrame: 0,
@@ -404,8 +410,20 @@ let finalRevealLastFrame = 0;
 let levelOverlayOpenedAt = 0;
 let levelOverlayIgnoreClick = false;
 
+function getToneModeOverride() {
+  const params = new URLSearchParams(window.location.search);
+  const value = params.get("numbers");
+  if (value === "0") {
+    return "symbols";
+  }
+  if (value === "1") {
+    return "numbers";
+  }
+  return null;
+}
+
 function loadProgress() {
-  const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null };
+  const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null, toneMode: "numbers" };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -416,6 +434,7 @@ function loadProgress() {
       unlocked: new Set(Array.isArray(data.unlocked) ? data.unlocked : []),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
       lastLevel: typeof data.lastLevel === "string" ? data.lastLevel : null,
+      toneMode: data.toneMode === "symbols" ? "symbols" : "numbers",
     };
   } catch (error) {
     return fallback;
@@ -430,6 +449,7 @@ function saveProgress() {
         unlocked: Array.from(progress.unlocked),
         highscores: progress.highscores,
         lastLevel: progress.lastLevel,
+        toneMode: progress.toneMode,
       })
     );
   } catch (error) {
@@ -644,6 +664,31 @@ function getHighScore(levelId) {
 
 function updateHighScore() {
   highScoreEl.textContent = getHighScore(state.levelId);
+}
+
+function updateToneModeToggle() {
+  if (!toneModeButtons.length) {
+    return;
+  }
+  const activeMode = state.useNumberLabels ? "numbers" : "symbols";
+  toneModeButtons.forEach((button) => {
+    const isActive = button.dataset.mode === activeMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function setToneMode(mode, { persist = true } = {}) {
+  const normalized = mode === "symbols" ? "symbols" : "numbers";
+  if (progress.toneMode === normalized && state.useNumberLabels === (normalized === "numbers")) {
+    return;
+  }
+  progress.toneMode = normalized;
+  state.useNumberLabels = normalized === "numbers";
+  if (persist) {
+    saveProgress();
+  }
+  updateToneLabels();
 }
 
 function updateLevelPickerButton() {
@@ -1051,14 +1096,14 @@ function sanitizeInput(value) {
 }
 
 function formatToneDigit(digit) {
-  if (USE_NUMBER_LABELS) {
+  if (state.useNumberLabels) {
     return digit;
   }
   return TONE_SYMBOLS[digit] || digit;
 }
 
 function formatToneString(tones) {
-  if (USE_NUMBER_LABELS) {
+  if (state.useNumberLabels) {
     return tones;
   }
   return tones
@@ -1074,20 +1119,21 @@ function updateToneLabels() {
     button.textContent = label;
     button.setAttribute(
       "aria-label",
-      USE_NUMBER_LABELS ? `Tone ${digit}` : `Tone ${digit} (${label})`
+      state.useNumberLabels ? `Tone ${digit}` : `Tone ${digit} (${label})`
     );
   });
   if (toneModeLabel) {
-    toneModeLabel.textContent = USE_NUMBER_LABELS ? "numbers" : "symbols";
+    toneModeLabel.textContent = state.useNumberLabels ? "numbers" : "symbols";
   }
   if (toneHeadingMode) {
-    toneHeadingMode.textContent = USE_NUMBER_LABELS ? "numbers" : "symbols";
+    toneHeadingMode.textContent = state.useNumberLabels ? "numbers" : "symbols";
   }
   if (toneExample) {
-    toneExample.textContent = USE_NUMBER_LABELS
+    toneExample.textContent = state.useNumberLabels
       ? "23"
       : `${formatToneDigit("2")}${formatToneDigit("3")}`;
   }
+  updateToneModeToggle();
 }
 
 function isPortraitLike() {
@@ -1739,6 +1785,12 @@ if (backspaceBtn) {
     handleBackspace();
   });
 }
+
+toneModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setToneMode(button.dataset.mode);
+  });
+});
 
 if (levelPickerBtn) {
   levelPickerBtn.addEventListener("click", () => {
