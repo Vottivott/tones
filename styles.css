@@ -771,6 +771,15 @@ input#toneInput:focus {
     margin-bottom: 0.2rem;
   }
 
+  .game--running.game--keypad {
+    gap: 0.8rem;
+    padding-bottom: 1.2rem;
+  }
+
+  .game--running.game--keypad .input-panel {
+    padding: 0.85rem 1.2rem;
+  }
+
   .status__message {
     display: none;
   }
