@@ -373,6 +373,7 @@ const state = {
   running: false,
   gameOver: false,
   pauseUsed: false,
+  finalReveal: false,
   useKeypad: false,
   score: 0,
   lives: 3,
@@ -395,6 +396,9 @@ let nextDropId = 0;
 let idleClearTimer = null;
 let lastSpeakAt = 0;
 let birdTypingTimer = null;
+let finalRevealFrame = null;
+let finalRevealLastFrame = 0;
+let levelOverlayOpenedAt = 0;
 
 function loadProgress() {
   const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null };
@@ -969,8 +973,12 @@ function openLevelOverlay() {
   if (!levelOverlay) {
     return;
   }
+  if (!levelOverlay.hidden) {
+    return;
+  }
   renderLevelOverlay();
   levelOverlay.hidden = false;
+  levelOverlayOpenedAt = performance.now();
   document.body.classList.add("level-overlay-active");
 }
 
@@ -1235,6 +1243,7 @@ function resetGame() {
   state.lastSpawn = 0;
   state.running = false;
   state.gameOver = false;
+  state.finalReveal = false;
   state.pauseUsed = false;
   gameRoot?.classList.remove("game--running");
   statusEl.removeAttribute("hidden");
@@ -1316,6 +1325,7 @@ function finalizeRun() {
 function endGame() {
   state.running = false;
   state.gameOver = true;
+  state.finalReveal = false;
   clearInputTimer();
   gameRoot?.classList.remove("game--running");
   updateInputEnabled();
@@ -1329,7 +1339,7 @@ function addSplash(x, y, radius) {
   splashes.push({ x, y, radius, life: 0 });
 }
 
-function addReveal(x, y, tones, size) {
+function addReveal(x, y, tones, size, duration = 0.9) {
   reveals.push({
     x,
     y,
@@ -1337,6 +1347,7 @@ function addReveal(x, y, tones, size) {
     display: formatToneString(tones),
     size,
     life: 0,
+    duration,
   });
 }
 
@@ -1383,6 +1394,49 @@ function addTranslation(x, y, text, radius) {
   });
 }
 
+function startFinalReveal() {
+  if (state.finalReveal) {
+    return;
+  }
+  state.finalReveal = true;
+  state.running = false;
+  clearInputTimer();
+  gameRoot?.classList.remove("game--running");
+  updateInputEnabled();
+
+  const remainingDrops = drops.splice(0, drops.length);
+  remainingDrops.forEach((drop) => {
+    const reveal = {
+      x: drop.x,
+      y: Math.min(state.safeBottom - 12, drop.y),
+      tones: drop.tones,
+      display: formatToneString(drop.tones),
+      size: Math.max(16, drop.radius * 0.7),
+      life: 0,
+      duration: 0.5,
+    };
+    reveals.push(reveal);
+  });
+
+  const start = performance.now();
+  finalRevealLastFrame = start;
+
+  const step = (now) => {
+    const delta = Math.min((now - finalRevealLastFrame) / 1000, MAX_FRAME_DELTA);
+    finalRevealLastFrame = now;
+    drawScene(delta);
+    if (now - start < 500) {
+      finalRevealFrame = requestAnimationFrame(step);
+    } else {
+      finalRevealFrame = null;
+      state.finalReveal = false;
+      endGame();
+    }
+  };
+
+  finalRevealFrame = requestAnimationFrame(step);
+}
+
 function clearDrop(drop) {
   const index = drops.indexOf(drop);
   if (index === -1) {
@@ -1403,9 +1457,16 @@ function missDrop(drop) {
   drops.splice(index, 1);
   state.lives -= 1;
   updateHud();
-  addReveal(drop.x, Math.min(state.safeBottom - 12, drop.y), drop.tones, Math.max(16, drop.radius * 0.7));
+  const revealDuration = state.lives <= 0 ? 0.5 : 0.9;
+  addReveal(
+    drop.x,
+    Math.min(state.safeBottom - 12, drop.y),
+    drop.tones,
+    Math.max(16, drop.radius * 0.7),
+    revealDuration
+  );
   if (state.lives <= 0) {
-    endGame();
+    startFinalReveal();
   } else {
     setStatus(`Missed: ${formatToneString(drop.tones)}`);
   }
@@ -1474,11 +1535,12 @@ function drawReveals(delta) {
 
   for (let i = reveals.length - 1; i >= 0; i -= 1) {
     const reveal = reveals[i];
-    if (reveal.life > 0.9) {
+    const duration = reveal.duration ?? 0.9;
+    if (reveal.life > duration) {
       reveals.splice(i, 1);
       continue;
     }
-    const progressLife = reveal.life / 0.9;
+    const progressLife = reveal.life / duration;
     const alpha = 0.95 - progressLife * 0.95;
     const y = reveal.y - progressLife * 18;
 
@@ -1591,6 +1653,9 @@ function handlePointer(event) {
 }
 
 startBtn.addEventListener("click", () => {
+  if (state.finalReveal) {
+    return;
+  }
   if (state.running) {
     pauseGame();
     return;
@@ -1670,6 +1735,9 @@ if (levelCloseBtn) {
 if (levelOverlay) {
   levelOverlay.addEventListener("click", (event) => {
     if (event.target === levelOverlay) {
+      if (performance.now() - levelOverlayOpenedAt < 250) {
+        return;
+      }
       closeLevelOverlay();
     }
   });
