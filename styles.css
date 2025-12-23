@@ -763,6 +763,14 @@ input#toneInput:focus {
     gap: 1.1rem;
   }
 
+  .input-panel {
+    gap: 0.9rem;
+  }
+
+  .input-panel__text h1 {
+    margin-bottom: 0.2rem;
+  }
+
   .status__message {
     display: none;
   }
