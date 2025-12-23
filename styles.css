@@ -110,7 +110,7 @@ body.bird-active {
 }
 
 .hud__select--button {
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -316,12 +316,8 @@ img.medal {
   margin: 0 auto;
 }
 
-.game--keypad .hud__select--native {
+.hud__select--native {
   display: none;
-}
-
-.game--keypad .hud__select--button {
-  display: inline-flex;
 }
 
 .keypad__key {

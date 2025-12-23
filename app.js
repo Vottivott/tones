@@ -40,6 +40,7 @@ const BIRD_TYPE_SPEED_MS = 22;
 const BIRD_TYPE_PAUSE_SHORT_MS = 90;
 const BIRD_TYPE_PAUSE_LONG_MS = 180;
 const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
+const SKIP_33 = true;
 
 const TONE_MODE_OVERRIDE = getToneModeOverride();
 
@@ -460,6 +461,9 @@ function saveProgress() {
 function buildWordPool(tones) {
   const pool = [];
   tones.forEach((tone) => {
+    if (SKIP_33 && tone === "33") {
+      return;
+    }
     const entries = WORDS_BY_TONE[tone];
     if (entries) {
       pool.push(...entries);
@@ -616,7 +620,7 @@ function renderLevelOverlay() {
 
     const name = document.createElement("div");
     name.className = "level-card__name";
-    name.textContent = level.label;
+    name.textContent = formatLevelLabel(level.label);
 
     const medals = document.createElement("div");
     medals.className = "level-card__medals";
@@ -640,7 +644,10 @@ function renderLevelOptions() {
     const option = document.createElement("option");
     const unlocked = isLevelUnlocked(level.id);
     option.value = level.id;
-    option.textContent = unlocked ? level.label : `${level.label} (Unlock ${level.unlockScore})`;
+    const displayLabel = formatLevelLabel(level.label);
+    option.textContent = unlocked
+      ? displayLabel
+      : `${displayLabel} (Unlock ${level.unlockScore})`;
     option.disabled = !unlocked;
     levelSelect.appendChild(option);
   });
@@ -697,7 +704,7 @@ function updateLevelPickerButton() {
   }
   const levelId = levelSelect.value || state.levelId;
   const level = getLevelById(levelId);
-  levelPickerBtn.textContent = level ? level.label : "Level";
+  levelPickerBtn.textContent = level ? formatLevelLabel(level.label) : "Level";
   levelPickerBtn.setAttribute("aria-label", `Level ${level ? level.label : ""}`.trim());
   levelPickerBtn.disabled = levelSelect.disabled;
 }
@@ -1118,6 +1125,13 @@ function formatToneString(tones) {
     .join("");
 }
 
+function formatLevelLabel(label) {
+  if (state.useNumberLabels) {
+    return label;
+  }
+  return label.replace(/[1-4]/g, (digit) => formatToneDigit(digit));
+}
+
 function updateToneLabels() {
   keypadButtons.forEach((button) => {
     const digit = button.dataset.digit;
@@ -1140,6 +1154,8 @@ function updateToneLabels() {
       : `${formatToneDigit("2")}${formatToneDigit("3")}`;
   }
   updateToneModeToggle();
+  updateLevelPickerButton();
+  renderLevelOverlay();
 }
 
 function isPortraitLike() {
@@ -1160,7 +1176,6 @@ function updateInputMode() {
     toneInput.setAttribute("inputmode", "numeric");
     toneInput.removeAttribute("readonly");
     toneInput.removeAttribute("tabindex");
-    closeLevelOverlay();
   }
   updateInputEnabled();
 }
@@ -1800,7 +1815,7 @@ toneModeButtons.forEach((button) => {
 
 if (levelPickerBtn) {
   levelPickerBtn.addEventListener("click", () => {
-    if (!state.useKeypad || levelPickerBtn.disabled) {
+    if (levelPickerBtn.disabled) {
       return;
     }
     openLevelOverlay();
@@ -1825,7 +1840,7 @@ if (levelCloseBtn) {
 
 if (medalRowEl) {
   medalRowEl.addEventListener("click", () => {
-    if (!state.useKeypad || levelSelect.disabled) {
+    if (levelSelect.disabled) {
       return;
     }
     openLevelOverlay();
