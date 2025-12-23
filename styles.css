@@ -50,8 +50,8 @@ body.bird-active {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  min-height: 100vh;
-  height: 100dvh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  height: calc(var(--vh, 1vh) * 100);
   padding: 2rem clamp(1.5rem, 4vw, 4rem) 2.5rem;
 }
 

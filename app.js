@@ -774,8 +774,14 @@ function resizeCanvas() {
   state.width = rect.width;
   state.height = rect.height;
   state.safeBottom = rect.height - 6;
+  updateViewportHeight();
   updateInputMode();
   updateStatusPlacement();
+}
+
+function updateViewportHeight() {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty("--vh", `${viewportHeight / 100}px`);
 }
 
 function updateHud() {
