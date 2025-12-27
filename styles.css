@@ -607,6 +607,17 @@ body.bird-active .game {
   cursor: pointer;
 }
 
+.mode-toggle__btn--icon {
+  padding: 0.25rem 0.4rem;
+}
+
+.mode-toggle__btn--icon img {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+  filter: invert(1) brightness(1.15);
+}
+
 .mode-toggle__btn.is-active {
   background: rgba(145, 229, 246, 0.35);
   color: var(--ink);
