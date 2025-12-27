@@ -1551,6 +1551,7 @@ function updateInputMode() {
     gameRoot.classList.toggle("game--image-mode", state.useImagePad);
     gameRoot.classList.toggle("game--vis-mode", state.useVisDrops);
   }
+  updateLevelCloseLabel();
   if (state.useKeypad) {
     toneInput.setAttribute("inputmode", "none");
     toneInput.setAttribute("readonly", "readonly");
@@ -1562,6 +1563,19 @@ function updateInputMode() {
     toneInput.removeAttribute("tabindex");
   }
   updateInputEnabled();
+}
+
+function updateLevelCloseLabel() {
+  if (!levelCloseBtn) {
+    return;
+  }
+  if (HANNES_MODE && isPortraitLike()) {
+    levelCloseBtn.textContent = "×";
+    levelCloseBtn.setAttribute("aria-label", "Close");
+  } else {
+    levelCloseBtn.textContent = "Close";
+    levelCloseBtn.removeAttribute("aria-label");
+  }
 }
 
 function updateInputEnabled() {
