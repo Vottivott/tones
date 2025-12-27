@@ -969,16 +969,34 @@ function renderImagePad() {
     button.appendChild(img);
 
     button.addEventListener("click", () => {
-      if (!state.running || !state.useImagePad) {
+      if (!state.useImagePad) {
         return;
       }
-      handleImageEntry(tones);
+      if (state.running) {
+        handleImageEntry(tones);
+        return;
+      }
+      playToneSample(tones);
     });
 
     imagePad.appendChild(button);
     getToneImage(tones);
   });
   imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
+}
+
+function playToneSample(tones) {
+  if (state.toneMode === "vis") {
+    return;
+  }
+  const entries = WORDS_BY_TONE[tones];
+  if (!entries || !entries.length) {
+    return;
+  }
+  const entry = entries[Math.floor(Math.random() * entries.length)];
+  lastSpoken = entry;
+  speak(entry.text, { force: true });
+  setStatus(`Replaying: ${entry.text}`);
 }
 
 function shuffleImagePadOrder() {
