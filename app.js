@@ -57,6 +57,9 @@ const TONE_SYMBOLS = {
   "4": "╲",
 };
 
+const VIS_DROP_RADIUS = 12;
+const VIS_DROP_PADDING = 4;
+
 const MEDAL_TIERS = [
   { id: "bronze", label: "Bronze", score: 20, image: "medals/bronze.png" },
   { id: "silver", label: "Silver", score: 30, image: "medals/silver.png" },
@@ -393,6 +396,7 @@ const state = {
   toneMode: progress.toneMode,
   useNumberLabels: progress.toneMode !== "symbols",
   useImagePad: progress.toneMode === "images",
+  useVisDrops: progress.toneMode === "vis",
   hannesMode: HANNES_MODE,
   score: 0,
   lives: 3,
@@ -443,6 +447,7 @@ const IMAGE_PAD_TONES = [
   "43",
   "44",
 ];
+const toneImageCache = new Map();
 
 function getHannesMode() {
   const params = new URLSearchParams(window.location.search);
@@ -482,17 +487,35 @@ function getToneModeOverride() {
 
 function normalizeToneMode(mode) {
   if (HANNES_MODE) {
-    return mode === "images" ? "images" : "numbers";
+    if (mode === "images") {
+      return "images";
+    }
+    if (mode === "vis") {
+      return "vis";
+    }
+    return "numbers";
   }
   return mode === "symbols" ? "symbols" : "numbers";
+}
+
+function getUnlockMode() {
+  if (state.toneMode === "images") {
+    return "images";
+  }
+  if (state.toneMode === "vis") {
+    return "vis";
+  }
+  return "numbers";
 }
 
 function loadProgress() {
   const fallback = {
     unlocked: new Set(),
     unlockedImage: new Set(),
+    unlockedVis: new Set(),
     highscores: {},
     highscoresImage: {},
+    highscoresVis: {},
     lastLevel: null,
     toneMode: "numbers",
   };
@@ -504,13 +527,19 @@ function loadProgress() {
     const data = JSON.parse(raw);
     const unlocked = Array.isArray(data.unlocked) ? data.unlocked : [];
     const unlockedImage = Array.isArray(data.unlockedImage) ? data.unlockedImage : [];
+    const unlockedVis = Array.isArray(data.unlockedVis) ? data.unlockedVis : [];
     return {
       unlocked: new Set(unlocked),
       unlockedImage: new Set(unlockedImage),
+      unlockedVis: new Set(unlockedVis),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
       highscoresImage:
         data.highscoresImage && typeof data.highscoresImage === "object"
           ? data.highscoresImage
+          : {},
+      highscoresVis:
+        data.highscoresVis && typeof data.highscoresVis === "object"
+          ? data.highscoresVis
           : {},
       lastLevel: typeof data.lastLevel === "string" ? data.lastLevel : null,
       toneMode: normalizeToneMode(data.toneMode),
@@ -527,8 +556,10 @@ function saveProgress() {
       JSON.stringify({
         unlocked: Array.from(progress.unlocked),
         unlockedImage: Array.from(progress.unlockedImage ?? []),
+        unlockedVis: Array.from(progress.unlockedVis ?? []),
         highscores: progress.highscores,
         highscoresImage: progress.highscoresImage,
+        highscoresVis: progress.highscoresVis,
         lastLevel: progress.lastLevel,
         toneMode: progress.toneMode,
       })
@@ -557,6 +588,7 @@ function ensureBaseUnlocks() {
     if (level.unlockScore === 0) {
       progress.unlocked.add(level.id);
       progress.unlockedImage.add(level.id);
+      progress.unlockedVis.add(level.id);
     }
   });
 }
@@ -578,12 +610,23 @@ function ensureBranchUnlocks() {
       saveProgress();
     }
   }
+  if (progress.unlockedVis.has("4x")) {
+    let changed = false;
+    changed = unlockLevel("x1", "vis") || changed;
+    changed = unlockLevel("1-44-slow", "vis") || changed;
+    if (changed) {
+      saveProgress();
+    }
+  }
 }
 
 function normalizeProgress() {
   const validIds = new Set(LEVELS.map((level) => level.id));
   if (!progress.unlockedImage) {
     progress.unlockedImage = new Set();
+  }
+  if (!progress.unlockedVis) {
+    progress.unlockedVis = new Set();
   }
   if (progress.unlocked.has("1x-4x")) {
     progress.unlocked.delete("1x-4x");
@@ -609,11 +652,19 @@ function normalizeProgress() {
       progress.unlockedImage.delete(id);
     }
   });
+  progress.unlockedVis.forEach((id) => {
+    if (!validIds.has(id)) {
+      progress.unlockedVis.delete(id);
+    }
+  });
   if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
     progress.lastLevel = null;
   }
   if (!progress.highscoresImage || typeof progress.highscoresImage !== "object") {
     progress.highscoresImage = {};
+  }
+  if (!progress.highscoresVis || typeof progress.highscoresVis !== "object") {
+    progress.highscoresVis = {};
   }
   progress.toneMode = normalizeToneMode(progress.toneMode);
   saveProgress();
@@ -632,7 +683,8 @@ function getNextLevel(levelId) {
 }
 
 function unlockLevel(levelId, mode = "numbers") {
-  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
+  const unlockedSet =
+    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
   if (unlockedSet.has(levelId)) {
     return false;
   }
@@ -646,7 +698,8 @@ function unlockUpToLevel(levelId, mode = "numbers") {
     return false;
   }
   let unlockedAny = false;
-  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
+  const unlockedSet =
+    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
   for (let i = 0; i <= index; i += 1) {
     const level = LEVELS[i];
     if (!unlockedSet.has(level.id)) {
@@ -662,7 +715,8 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
   if (index <= 0) {
     return true;
   }
-  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
+  const unlockedSet =
+    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
   for (let i = 0; i < index; i += 1) {
     if (!unlockedSet.has(LEVELS[i].id)) {
       return false;
@@ -672,7 +726,9 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
 }
 
 function isLevelUnlocked(levelId, mode = "numbers") {
-  return (mode === "images" ? progress.unlockedImage : progress.unlocked).has(levelId);
+  const unlockedSet =
+    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
+  return unlockedSet.has(levelId);
 }
 
 function buildLevelMedals(container, score) {
@@ -712,7 +768,7 @@ function renderLevelOverlay() {
     return;
   }
   levelList.replaceChildren();
-  const mode = state.toneMode === "images" ? "images" : "numbers";
+  const mode = getUnlockMode();
   LEVELS.forEach((level) => {
     const card = document.createElement("button");
     card.type = "button";
@@ -745,7 +801,7 @@ function renderLevelOverlay() {
 
 function renderLevelOptions() {
   levelSelect.innerHTML = "";
-  const mode = state.toneMode === "images" ? "images" : "numbers";
+  const mode = getUnlockMode();
   LEVELS.forEach((level) => {
     const option = document.createElement("option");
     const unlocked = isLevelUnlocked(level.id, mode);
@@ -772,7 +828,12 @@ function renderLevelOptions() {
 }
 
 function getHighScore(levelId) {
-  const highscores = state.toneMode === "images" ? progress.highscoresImage : progress.highscores;
+  const highscores =
+    state.toneMode === "images"
+      ? progress.highscoresImage
+      : state.toneMode === "vis"
+        ? progress.highscoresVis
+        : progress.highscores;
   return Number(highscores[levelId]) || 0;
 }
 
@@ -786,6 +847,9 @@ function updateToneModeToggle() {
   }
   const activeMode = state.toneMode;
   toneModeButtons.forEach((button) => {
+    if (button.hidden) {
+      return;
+    }
     const isActive = button.dataset.mode === activeMode;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
@@ -798,6 +862,7 @@ function configureToneModeButtons() {
   }
   const numbersButton = toneModeButtons[0];
   const altButton = toneModeButtons[1];
+  const visButton = toneModeButtons[2];
   if (numbersButton) {
     numbersButton.dataset.mode = "numbers";
     numbersButton.textContent = "123";
@@ -807,6 +872,12 @@ function configureToneModeButtons() {
     altButton.dataset.mode = HANNES_MODE ? "images" : "symbols";
     altButton.textContent = HANNES_MODE ? "Images" : "Symbols";
     altButton.setAttribute("aria-label", HANNES_MODE ? "Images" : "Symbols");
+  }
+  if (visButton) {
+    visButton.dataset.mode = "vis";
+    visButton.textContent = "Vis";
+    visButton.setAttribute("aria-label", "Vis");
+    visButton.hidden = !HANNES_MODE;
   }
 }
 
@@ -835,8 +906,18 @@ function renderImagePad() {
     });
 
     imagePad.appendChild(button);
+    getToneImage(tones);
   });
   imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
+}
+
+function getToneImage(tones) {
+  if (!toneImageCache.has(tones)) {
+    const img = new Image();
+    img.src = `tone_grid_images/${tones}.png`;
+    toneImageCache.set(tones, img);
+  }
+  return toneImageCache.get(tones);
 }
 
 function setToneMode(mode, { persist = true } = {}) {
@@ -848,13 +929,22 @@ function setToneMode(mode, { persist = true } = {}) {
   state.toneMode = normalized;
   state.useNumberLabels = normalized !== "symbols";
   state.useImagePad = normalized === "images";
+  state.useVisDrops = normalized === "vis";
   gameRoot?.classList.toggle("game--image-mode", state.useImagePad);
+  gameRoot?.classList.toggle("game--vis-mode", state.useVisDrops);
   if (state.useImagePad) {
     toneInput.value = "";
     clearInputTimer();
   }
   if (persist) {
     saveProgress();
+  }
+  renderLevelOptions();
+  if (!isLevelUnlocked(state.levelId, getUnlockMode())) {
+    const firstUnlocked = LEVELS.find((level) => isLevelUnlocked(level.id, getUnlockMode()));
+    if (firstUnlocked) {
+      setLevel(firstUnlocked.id, { announce: false });
+    }
   }
   updateToneLabels();
   updateHighScore();
@@ -945,6 +1035,7 @@ function resizeCanvas() {
   state.width = rect.width;
   state.height = rect.height;
   state.safeBottom = rect.height - 6;
+  state.visTileSize = computeVisTileSize();
   updateViewportHeight();
   updateInputMode();
   updateStatusPlacement();
@@ -953,6 +1044,15 @@ function resizeCanvas() {
 function updateViewportHeight() {
   const viewportHeight = window.visualViewport?.height || window.innerHeight;
   document.documentElement.style.setProperty("--vh", `${viewportHeight / 100}px`);
+}
+
+function computeVisTileSize() {
+  const rootSize =
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const gap = 0.35 * rootSize;
+  const padWidth = Math.min(420, state.width);
+  const size = (padWidth - gap * 4) / 5;
+  return Math.max(48, Math.min(96, size));
 }
 
 function updateHud() {
@@ -1299,6 +1399,9 @@ function getToneModeLabel() {
   if (state.toneMode === "images") {
     return "images";
   }
+  if (state.toneMode === "vis") {
+    return "numbers";
+  }
   return state.useNumberLabels ? "numbers" : "symbols";
 }
 
@@ -1353,6 +1456,7 @@ function updateInputMode() {
   if (gameRoot) {
     gameRoot.classList.toggle("game--keypad", state.useKeypad);
     gameRoot.classList.toggle("game--image-mode", state.useImagePad);
+    gameRoot.classList.toggle("game--vis-mode", state.useVisDrops);
   }
   if (state.useKeypad) {
     toneInput.setAttribute("inputmode", "none");
@@ -1494,7 +1598,9 @@ function spawnDrop() {
   if (!entry) {
     return;
   }
-  const radius = 24 + Math.random() * 14;
+  const isVis = state.toneMode === "vis";
+  const size = isVis ? state.visTileSize || 72 : null;
+  const radius = isVis ? size / 2 : 24 + Math.random() * 14;
   const margin = radius + 12;
   const x = margin + Math.random() * Math.max(0, state.width - margin * 2);
   const y = -radius - Math.random() * 40;
@@ -1507,6 +1613,9 @@ function spawnDrop() {
     x,
     y,
     radius,
+    size,
+    renderMode: isVis ? "vis" : "raindrop",
+    image: isVis ? getToneImage(entry.tones) : null,
     speed: speed + Math.random() * 20,
   };
   drops.push(drop);
@@ -1587,7 +1696,7 @@ function maybeUnlockNextLevel() {
   const nextLevel = getNextLevel(state.levelId);
   let unlockedLevel = null;
   let unlockedAny = false;
-  const mode = state.toneMode === "images" ? "images" : "numbers";
+  const mode = getUnlockMode();
 
   if (nextLevel && !isLevelUnlocked(nextLevel.id, mode) && state.score >= nextLevel.unlockScore) {
     if (nextLevel.id === "1-44" && !areAllPreviousUnlocked(nextLevel.id, mode)) {
@@ -1597,7 +1706,8 @@ function maybeUnlockNextLevel() {
     unlockedLevel = nextLevel;
   }
 
-  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
+  const unlockedSet =
+    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
   if (unlockedSet.has("4x")) {
     unlockedAny = unlockLevel("x1", mode) || unlockedAny;
     unlockedAny = unlockLevel("1-44-slow", mode) || unlockedAny;
@@ -1618,7 +1728,11 @@ function finalizeRun() {
   }
   let message = baseMessage;
   const highscores =
-    state.toneMode === "images" ? progress.highscoresImage : progress.highscores;
+    state.toneMode === "images"
+      ? progress.highscoresImage
+      : state.toneMode === "vis"
+        ? progress.highscoresVis
+        : progress.highscores;
   const previousHigh = getHighScore(state.levelId);
   const previousMedals = getMedalTierIds(previousHigh);
   let isHighScore = false;
@@ -1821,6 +1935,10 @@ function findMatch(tones) {
 }
 
 function drawDrop(drop) {
+  if (drop.renderMode === "vis") {
+    drawVisDrop(drop);
+    return;
+  }
   const { x, y, radius } = drop;
   const gradient = ctx.createLinearGradient(x, y - radius, x, y + radius);
   gradient.addColorStop(0, "rgba(145, 229, 246, 0.95)");
@@ -1845,6 +1963,43 @@ function drawDrop(drop) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(drop.text, x, y + radius * 0.1);
+  ctx.restore();
+}
+
+function drawVisDrop(drop) {
+  const size = drop.size || 72;
+  const half = size / 2;
+  const left = drop.x - half;
+  const top = drop.y - half;
+  const image = drop.image;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(left + VIS_DROP_RADIUS, top);
+  ctx.arcTo(left + size, top, left + size, top + size, VIS_DROP_RADIUS);
+  ctx.arcTo(left + size, top + size, left, top + size, VIS_DROP_RADIUS);
+  ctx.arcTo(left, top + size, left, top, VIS_DROP_RADIUS);
+  ctx.arcTo(left, top, left + size, top, VIS_DROP_RADIUS);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(8, 54, 69, 0.7)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(145, 229, 246, 0.35)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(145, 229, 246, 0.2)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(left + 1, top + 1, size - 2, size - 2);
+
+  if (image && image.complete) {
+    const inner = size - VIS_DROP_PADDING * 2;
+    ctx.drawImage(
+      image,
+      left + VIS_DROP_PADDING,
+      top + VIS_DROP_PADDING,
+      inner,
+      inner
+    );
+  }
   ctx.restore();
 }
 
@@ -2060,16 +2215,16 @@ if (levelPickerBtn) {
 }
 
 if (levelSelect) {
-levelSelect.addEventListener("change", () => {
-  const selected = levelSelect.value;
-  const mode = state.toneMode === "images" ? "images" : "numbers";
-  if (!isLevelUnlocked(selected, mode)) {
-    levelSelect.value = state.levelId;
-    return;
-  }
-  setLevel(selected, { announce: false });
-  resetGame();
-});
+  levelSelect.addEventListener("change", () => {
+    const selected = levelSelect.value;
+    const mode = getUnlockMode();
+    if (!isLevelUnlocked(selected, mode)) {
+      levelSelect.value = state.levelId;
+      return;
+    }
+    setLevel(selected, { announce: false });
+    resetGame();
+  });
 }
 
 if (levelCloseBtn) {
@@ -2109,7 +2264,7 @@ const initialLevel =
   progress.lastLevel && isLevelUnlocked(progress.lastLevel, "numbers")
     ? progress.lastLevel
     : LEVELS[0].id;
-setLevel(state.toneMode === "images" ? LEVELS[0].id : initialLevel, {
+setLevel(state.toneMode === "images" || state.toneMode === "vis" ? LEVELS[0].id : initialLevel, {
   announce: false,
 });
 resetGame();
