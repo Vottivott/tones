@@ -1615,7 +1615,7 @@ function updateInputEnabled() {
     backspaceBtn.disabled = !state.running || !state.useKeypad || state.useImagePad;
   }
   imagePadButtons.forEach((button) => {
-    button.disabled = !state.running || !state.useImagePad;
+    button.disabled = !state.useImagePad;
   });
   if (replayBtn) {
     replayBtn.disabled = state.toneMode === "vis";
