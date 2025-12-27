@@ -490,6 +490,7 @@ function normalizeToneMode(mode) {
 function loadProgress() {
   const fallback = {
     unlocked: new Set(),
+    unlockedImage: new Set(),
     highscores: {},
     highscoresImage: {},
     lastLevel: null,
@@ -501,8 +502,11 @@ function loadProgress() {
       return fallback;
     }
     const data = JSON.parse(raw);
+    const unlocked = Array.isArray(data.unlocked) ? data.unlocked : [];
+    const unlockedImage = Array.isArray(data.unlockedImage) ? data.unlockedImage : [];
     return {
-      unlocked: new Set(Array.isArray(data.unlocked) ? data.unlocked : []),
+      unlocked: new Set(unlocked),
+      unlockedImage: new Set(unlockedImage),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
       highscoresImage:
         data.highscoresImage && typeof data.highscoresImage === "object"
@@ -522,6 +526,7 @@ function saveProgress() {
       STORAGE_KEY,
       JSON.stringify({
         unlocked: Array.from(progress.unlocked),
+        unlockedImage: Array.from(progress.unlockedImage ?? []),
         highscores: progress.highscores,
         highscoresImage: progress.highscoresImage,
         lastLevel: progress.lastLevel,
@@ -551,6 +556,7 @@ function ensureBaseUnlocks() {
   LEVELS.forEach((level) => {
     if (level.unlockScore === 0) {
       progress.unlocked.add(level.id);
+      progress.unlockedImage.add(level.id);
     }
   });
 }
@@ -564,10 +570,21 @@ function ensureBranchUnlocks() {
       saveProgress();
     }
   }
+  if (progress.unlockedImage.has("4x")) {
+    let changed = false;
+    changed = unlockLevel("x1", "images") || changed;
+    changed = unlockLevel("1-44-slow", "images") || changed;
+    if (changed) {
+      saveProgress();
+    }
+  }
 }
 
 function normalizeProgress() {
   const validIds = new Set(LEVELS.map((level) => level.id));
+  if (!progress.unlockedImage) {
+    progress.unlockedImage = new Set();
+  }
   if (progress.unlocked.has("1x-4x")) {
     progress.unlocked.delete("1x-4x");
     ["1x", "2x", "3x", "4x"].forEach((id) => progress.unlocked.add(id));
@@ -585,6 +602,11 @@ function normalizeProgress() {
   progress.unlocked.forEach((id) => {
     if (!validIds.has(id)) {
       progress.unlocked.delete(id);
+    }
+  });
+  progress.unlockedImage.forEach((id) => {
+    if (!validIds.has(id)) {
+      progress.unlockedImage.delete(id);
     }
   });
   if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
@@ -609,45 +631,48 @@ function getNextLevel(levelId) {
   return LEVELS[index + 1] || null;
 }
 
-function unlockLevel(levelId) {
-  if (progress.unlocked.has(levelId)) {
+function unlockLevel(levelId, mode = "numbers") {
+  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
+  if (unlockedSet.has(levelId)) {
     return false;
   }
-  progress.unlocked.add(levelId);
+  unlockedSet.add(levelId);
   return true;
 }
 
-function unlockUpToLevel(levelId) {
+function unlockUpToLevel(levelId, mode = "numbers") {
   const index = LEVELS.findIndex((level) => level.id === levelId);
   if (index === -1) {
     return false;
   }
   let unlockedAny = false;
+  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
   for (let i = 0; i <= index; i += 1) {
     const level = LEVELS[i];
-    if (!progress.unlocked.has(level.id)) {
-      progress.unlocked.add(level.id);
+    if (!unlockedSet.has(level.id)) {
+      unlockedSet.add(level.id);
       unlockedAny = true;
     }
   }
   return unlockedAny;
 }
 
-function areAllPreviousUnlocked(levelId) {
+function areAllPreviousUnlocked(levelId, mode = "numbers") {
   const index = LEVELS.findIndex((level) => level.id === levelId);
   if (index <= 0) {
     return true;
   }
+  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
   for (let i = 0; i < index; i += 1) {
-    if (!progress.unlocked.has(LEVELS[i].id)) {
+    if (!unlockedSet.has(LEVELS[i].id)) {
       return false;
     }
   }
   return true;
 }
 
-function isLevelUnlocked(levelId) {
-  return progress.unlocked.has(levelId);
+function isLevelUnlocked(levelId, mode = "numbers") {
+  return (mode === "images" ? progress.unlockedImage : progress.unlocked).has(levelId);
 }
 
 function buildLevelMedals(container, score) {
@@ -687,11 +712,12 @@ function renderLevelOverlay() {
     return;
   }
   levelList.replaceChildren();
+  const mode = state.toneMode === "images" ? "images" : "numbers";
   LEVELS.forEach((level) => {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "level-card";
-    const unlocked = isLevelUnlocked(level.id);
+    const unlocked = isLevelUnlocked(level.id, mode);
     card.disabled = !unlocked;
     if (level.id === state.levelId) {
       card.classList.add("is-selected");
@@ -719,9 +745,10 @@ function renderLevelOverlay() {
 
 function renderLevelOptions() {
   levelSelect.innerHTML = "";
+  const mode = state.toneMode === "images" ? "images" : "numbers";
   LEVELS.forEach((level) => {
     const option = document.createElement("option");
-    const unlocked = isLevelUnlocked(level.id);
+    const unlocked = isLevelUnlocked(level.id, mode);
     option.value = level.id;
     const displayLabel = formatLevelLabel(level.label);
     option.textContent = unlocked
@@ -731,10 +758,10 @@ function renderLevelOptions() {
     levelSelect.appendChild(option);
   });
 
-  if (isLevelUnlocked(state.levelId)) {
+  if (isLevelUnlocked(state.levelId, mode)) {
     levelSelect.value = state.levelId;
   } else {
-    const firstUnlocked = LEVELS.find((level) => isLevelUnlocked(level.id));
+    const firstUnlocked = LEVELS.find((level) => isLevelUnlocked(level.id, mode));
     if (firstUnlocked) {
       levelSelect.value = firstUnlocked.id;
     }
@@ -1560,18 +1587,20 @@ function maybeUnlockNextLevel() {
   const nextLevel = getNextLevel(state.levelId);
   let unlockedLevel = null;
   let unlockedAny = false;
+  const mode = state.toneMode === "images" ? "images" : "numbers";
 
-  if (nextLevel && !isLevelUnlocked(nextLevel.id) && state.score >= nextLevel.unlockScore) {
-    if (nextLevel.id === "1-44" && !areAllPreviousUnlocked(nextLevel.id)) {
+  if (nextLevel && !isLevelUnlocked(nextLevel.id, mode) && state.score >= nextLevel.unlockScore) {
+    if (nextLevel.id === "1-44" && !areAllPreviousUnlocked(nextLevel.id, mode)) {
       return null;
     }
-    unlockedAny = unlockUpToLevel(nextLevel.id) || unlockedAny;
+    unlockedAny = unlockUpToLevel(nextLevel.id, mode) || unlockedAny;
     unlockedLevel = nextLevel;
   }
 
-  if (progress.unlocked.has("4x")) {
-    unlockedAny = unlockLevel("x1") || unlockedAny;
-    unlockedAny = unlockLevel("1-44-slow") || unlockedAny;
+  const unlockedSet = mode === "images" ? progress.unlockedImage : progress.unlocked;
+  if (unlockedSet.has("4x")) {
+    unlockedAny = unlockLevel("x1", mode) || unlockedAny;
+    unlockedAny = unlockLevel("1-44-slow", mode) || unlockedAny;
   }
 
   if (unlockedAny) {
@@ -2031,15 +2060,16 @@ if (levelPickerBtn) {
 }
 
 if (levelSelect) {
-  levelSelect.addEventListener("change", () => {
-    const selected = levelSelect.value;
-    if (!isLevelUnlocked(selected)) {
-      levelSelect.value = state.levelId;
-      return;
-    }
-    setLevel(selected, { announce: false });
-    resetGame();
-  });
+levelSelect.addEventListener("change", () => {
+  const selected = levelSelect.value;
+  const mode = state.toneMode === "images" ? "images" : "numbers";
+  if (!isLevelUnlocked(selected, mode)) {
+    levelSelect.value = state.levelId;
+    return;
+  }
+  setLevel(selected, { announce: false });
+  resetGame();
+});
 }
 
 if (levelCloseBtn) {
@@ -2076,8 +2106,12 @@ resizeCanvas();
 renderLevelOptions();
 updateToneLabels();
 const initialLevel =
-  progress.lastLevel && isLevelUnlocked(progress.lastLevel) ? progress.lastLevel : LEVELS[0].id;
-setLevel(initialLevel, { announce: false });
+  progress.lastLevel && isLevelUnlocked(progress.lastLevel, "numbers")
+    ? progress.lastLevel
+    : LEVELS[0].id;
+setLevel(state.toneMode === "images" ? LEVELS[0].id : initialLevel, {
+  announce: false,
+});
 resetGame();
 updateHud();
 updateHighScore();
