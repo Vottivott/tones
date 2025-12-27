@@ -281,8 +281,8 @@ img.medal {
   display: none;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.35rem;
-  width: min(420px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .image-pad__btn {
