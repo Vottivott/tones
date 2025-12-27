@@ -1572,9 +1572,11 @@ function updateLevelCloseLabel() {
   if (HANNES_MODE && isPortraitLike()) {
     levelCloseBtn.textContent = "×";
     levelCloseBtn.setAttribute("aria-label", "Close");
+    levelCloseBtn.classList.add("level-close--compact");
   } else {
     levelCloseBtn.textContent = "Close";
     levelCloseBtn.removeAttribute("aria-label");
+    levelCloseBtn.classList.remove("level-close--compact");
   }
 }
 

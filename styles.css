@@ -748,6 +748,12 @@ input#toneInput:focus {
   border: 1px solid rgba(145, 229, 246, 0.35);
 }
 
+.level-close--compact {
+  padding: 0.35rem 0.55rem;
+  min-width: auto;
+  font-size: 1rem;
+}
+
 @keyframes floatIn {
   from {
     opacity: 0;
