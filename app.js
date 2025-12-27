@@ -398,7 +398,7 @@ const state = {
   useImagePad: progress.toneMode === "images" || progress.toneMode === "shuffle",
   useVisDrops: progress.toneMode === "vis",
   hannesMode: HANNES_MODE,
-  imagePadOrder: IMAGE_PAD_TONES.slice(),
+  imagePadOrder: [],
   score: 0,
   lives: 3,
   lastFrame: 0,
@@ -449,6 +449,7 @@ const IMAGE_PAD_TONES = [
   "44",
 ];
 const toneImageCache = new Map();
+state.imagePadOrder = IMAGE_PAD_TONES.slice();
 
 function getHannesMode() {
   const params = new URLSearchParams(window.location.search);
