@@ -273,6 +273,49 @@ img.medal {
   gap: 0.75rem;
 }
 
+.image-pad {
+  display: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: min(420px, 100%);
+  margin: 0 auto;
+}
+
+.image-pad__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border-radius: 14px;
+  border: 1px solid rgba(145, 229, 246, 0.35);
+  background: rgba(8, 54, 69, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(145, 229, 246, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  aspect-ratio: 1 / 1;
+}
+
+.image-pad__btn:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(145, 229, 246, 0.45);
+}
+
+.image-pad__btn:active {
+  transform: translateY(1px);
+}
+
+.image-pad__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.image-pad__btn img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
 .backspace-btn {
   display: none;
   align-items: center;
@@ -320,6 +363,17 @@ img.medal {
 .hud__select--native {
   display: none;
 }
+
+.game--image-mode input#toneInput,
+.game--image-mode .backspace-btn,
+.game--image-mode .keypad {
+  display: none;
+}
+
+.game--image-mode .image-pad {
+  display: grid;
+}
+
 
 .keypad__key {
   min-height: 56px;
@@ -369,6 +423,14 @@ img.medal {
   grid-template-rows: auto auto;
   align-items: center;
   width: min(260px, 100%);
+  margin: 0 auto;
+}
+
+.game--image-mode .input-panel__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: min(460px, 100%);
   margin: 0 auto;
 }
 

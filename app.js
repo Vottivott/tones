@@ -31,8 +31,10 @@ const levelOverlay = document.getElementById("levelOverlay");
 const levelList = document.getElementById("levelList");
 const levelCloseBtn = document.getElementById("levelClose");
 const toneModeButtons = Array.from(document.querySelectorAll(".mode-toggle__btn"));
+const imagePad = document.getElementById("imagePad");
 
 const STORAGE_KEY = "toneRaindropProgress";
+const HANNES_KEY = "hannes";
 const INPUT_IDLE_CLEAR_MS = 1000;
 const SPEECH_MIN_INTERVAL_MS = 320;
 const MAX_FRAME_DELTA = 0.08;
@@ -42,6 +44,7 @@ const BIRD_TYPE_PAUSE_LONG_MS = 180;
 const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
 const SKIP_33 = true;
 
+const HANNES_MODE = getHannesMode();
 const TONE_MODE_OVERRIDE = getToneModeOverride();
 
 const TONE_SYMBOLS = {
@@ -384,7 +387,10 @@ const state = {
   pauseUsed: false,
   finalReveal: false,
   useKeypad: false,
+  toneMode: progress.toneMode,
   useNumberLabels: progress.toneMode !== "symbols",
+  useImagePad: progress.toneMode === "images",
+  hannesMode: HANNES_MODE,
   score: 0,
   lives: 3,
   lastFrame: 0,
@@ -410,12 +416,60 @@ let finalRevealFrame = null;
 let finalRevealLastFrame = 0;
 let levelOverlayOpenedAt = 0;
 let levelOverlayIgnoreClick = false;
+let imagePadButtons = [];
+
+const IMAGE_PAD_TONES = [
+  "1",
+  "11",
+  "12",
+  "13",
+  "14",
+  "2",
+  "21",
+  "22",
+  "23",
+  "24",
+  "3",
+  "31",
+  "32",
+  "33",
+  "34",
+  "4",
+  "41",
+  "42",
+  "43",
+  "44",
+];
+
+function getHannesMode() {
+  const params = new URLSearchParams(window.location.search);
+  const override = params.get("hannes");
+  if (override === "1" || override === "0") {
+    const enabled = override === "1";
+    try {
+      window.localStorage.setItem(HANNES_KEY, enabled ? "1" : "0");
+    } catch (error) {
+      // Ignore storage errors.
+    }
+    return enabled;
+  }
+  try {
+    const stored = window.localStorage.getItem(HANNES_KEY);
+    if (stored === null) {
+      window.localStorage.setItem(HANNES_KEY, "0");
+      return false;
+    }
+    return stored === "1";
+  } catch (error) {
+    return false;
+  }
+}
 
 function getToneModeOverride() {
   const params = new URLSearchParams(window.location.search);
   const value = params.get("numbers");
   if (value === "0") {
-    return "symbols";
+    return HANNES_MODE ? "images" : "symbols";
   }
   if (value === "1") {
     return "numbers";
@@ -423,8 +477,21 @@ function getToneModeOverride() {
   return null;
 }
 
+function normalizeToneMode(mode) {
+  if (HANNES_MODE) {
+    return mode === "images" ? "images" : "numbers";
+  }
+  return mode === "symbols" ? "symbols" : "numbers";
+}
+
 function loadProgress() {
-  const fallback = { unlocked: new Set(), highscores: {}, lastLevel: null, toneMode: "numbers" };
+  const fallback = {
+    unlocked: new Set(),
+    highscores: {},
+    highscoresImage: {},
+    lastLevel: null,
+    toneMode: "numbers",
+  };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -434,8 +501,12 @@ function loadProgress() {
     return {
       unlocked: new Set(Array.isArray(data.unlocked) ? data.unlocked : []),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
+      highscoresImage:
+        data.highscoresImage && typeof data.highscoresImage === "object"
+          ? data.highscoresImage
+          : {},
       lastLevel: typeof data.lastLevel === "string" ? data.lastLevel : null,
-      toneMode: data.toneMode === "symbols" ? "symbols" : "numbers",
+      toneMode: normalizeToneMode(data.toneMode),
     };
   } catch (error) {
     return fallback;
@@ -449,6 +520,7 @@ function saveProgress() {
       JSON.stringify({
         unlocked: Array.from(progress.unlocked),
         highscores: progress.highscores,
+        highscoresImage: progress.highscoresImage,
         lastLevel: progress.lastLevel,
         toneMode: progress.toneMode,
       })
@@ -515,6 +587,10 @@ function normalizeProgress() {
   if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
     progress.lastLevel = null;
   }
+  if (!progress.highscoresImage || typeof progress.highscoresImage !== "object") {
+    progress.highscoresImage = {};
+  }
+  progress.toneMode = normalizeToneMode(progress.toneMode);
   saveProgress();
 }
 
@@ -666,7 +742,8 @@ function renderLevelOptions() {
 }
 
 function getHighScore(levelId) {
-  return Number(progress.highscores[levelId]) || 0;
+  const highscores = state.toneMode === "images" ? progress.highscoresImage : progress.highscores;
+  return Number(highscores[levelId]) || 0;
 }
 
 function updateHighScore() {
@@ -677,7 +754,7 @@ function updateToneModeToggle() {
   if (!toneModeButtons.length) {
     return;
   }
-  const activeMode = state.useNumberLabels ? "numbers" : "symbols";
+  const activeMode = state.toneMode;
   toneModeButtons.forEach((button) => {
     const isActive = button.dataset.mode === activeMode;
     button.classList.toggle("is-active", isActive);
@@ -685,17 +762,74 @@ function updateToneModeToggle() {
   });
 }
 
+function configureToneModeButtons() {
+  if (!toneModeButtons.length) {
+    return;
+  }
+  const numbersButton = toneModeButtons[0];
+  const altButton = toneModeButtons[1];
+  if (numbersButton) {
+    numbersButton.dataset.mode = "numbers";
+    numbersButton.textContent = "123";
+    numbersButton.setAttribute("aria-label", "Numbers");
+  }
+  if (altButton) {
+    altButton.dataset.mode = HANNES_MODE ? "images" : "symbols";
+    altButton.textContent = HANNES_MODE ? "Images" : "Symbols";
+    altButton.setAttribute("aria-label", HANNES_MODE ? "Images" : "Symbols");
+  }
+}
+
+function renderImagePad() {
+  if (!imagePad) {
+    return;
+  }
+  imagePad.replaceChildren();
+  IMAGE_PAD_TONES.forEach((tones) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "image-pad__btn";
+    button.dataset.tones = tones;
+    button.setAttribute("aria-label", `Tone ${tones}`);
+
+    const img = document.createElement("img");
+    img.src = `tone_grid_images/${tones}.png`;
+    img.alt = `Tone ${tones}`;
+    button.appendChild(img);
+
+    button.addEventListener("click", () => {
+      if (!state.running || !state.useImagePad) {
+        return;
+      }
+      handleImageEntry(tones);
+    });
+
+    imagePad.appendChild(button);
+  });
+  imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
+}
+
 function setToneMode(mode, { persist = true } = {}) {
-  const normalized = mode === "symbols" ? "symbols" : "numbers";
-  if (progress.toneMode === normalized && state.useNumberLabels === (normalized === "numbers")) {
+  const normalized = normalizeToneMode(mode);
+  if (progress.toneMode === normalized && state.toneMode === normalized) {
     return;
   }
   progress.toneMode = normalized;
-  state.useNumberLabels = normalized === "numbers";
+  state.toneMode = normalized;
+  state.useNumberLabels = normalized !== "symbols";
+  state.useImagePad = normalized === "images";
+  gameRoot?.classList.toggle("game--image-mode", state.useImagePad);
+  if (state.useImagePad) {
+    toneInput.value = "";
+    clearInputTimer();
+  }
   if (persist) {
     saveProgress();
   }
   updateToneLabels();
+  updateHighScore();
+  renderMedals();
+  updateInputEnabled();
 }
 
 function updateLevelPickerButton() {
@@ -1080,7 +1214,7 @@ function closeLevelOverlay() {
 }
 
 function focusInput() {
-  if (toneInput.hasAttribute("disabled") || state.useKeypad) {
+  if (toneInput.hasAttribute("disabled") || state.useKeypad || state.useImagePad) {
     return;
   }
   try {
@@ -1131,6 +1265,13 @@ function formatToneString(tones) {
     .join("");
 }
 
+function getToneModeLabel() {
+  if (state.toneMode === "images") {
+    return "images";
+  }
+  return state.useNumberLabels ? "numbers" : "symbols";
+}
+
 function formatLevelLabel(label) {
   if (state.useNumberLabels) {
     return label;
@@ -1149,10 +1290,10 @@ function updateToneLabels() {
     );
   });
   if (toneModeLabel) {
-    toneModeLabel.textContent = state.useNumberLabels ? "numbers" : "symbols";
+    toneModeLabel.textContent = getToneModeLabel();
   }
   if (toneHeadingMode) {
-    toneHeadingMode.textContent = state.useNumberLabels ? "numbers" : "symbols";
+    toneHeadingMode.textContent = getToneModeLabel();
   }
   if (toneExample) {
     toneExample.textContent = state.useNumberLabels
@@ -1172,6 +1313,7 @@ function updateInputMode() {
   state.useKeypad = isPortraitLike();
   if (gameRoot) {
     gameRoot.classList.toggle("game--keypad", state.useKeypad);
+    gameRoot.classList.toggle("game--image-mode", state.useImagePad);
   }
   if (state.useKeypad) {
     toneInput.setAttribute("inputmode", "none");
@@ -1187,7 +1329,9 @@ function updateInputMode() {
 }
 
 function updateInputEnabled() {
-  if (state.useKeypad) {
+  if (state.useImagePad) {
+    toneInput.setAttribute("disabled", "disabled");
+  } else if (state.useKeypad) {
     toneInput.setAttribute("disabled", "disabled");
   } else if (state.running) {
     toneInput.removeAttribute("disabled");
@@ -1195,11 +1339,14 @@ function updateInputEnabled() {
     toneInput.setAttribute("disabled", "disabled");
   }
   keypadButtons.forEach((button) => {
-    button.disabled = !state.running || !state.useKeypad;
+    button.disabled = !state.running || !state.useKeypad || state.useImagePad;
   });
   if (backspaceBtn) {
-    backspaceBtn.disabled = !state.running || !state.useKeypad;
+    backspaceBtn.disabled = !state.running || !state.useKeypad || state.useImagePad;
   }
+  imagePadButtons.forEach((button) => {
+    button.disabled = !state.running || !state.useImagePad;
+  });
   updateLevelPickerButton();
 }
 
@@ -1225,8 +1372,21 @@ function handleToneValue(value) {
   }
 }
 
+function handleImageEntry(tones) {
+  if (!state.running) {
+    return;
+  }
+  const match = findMatch(tones);
+  if (match) {
+    clearDrop(match);
+  }
+}
+
 function appendDigit(digit) {
   if (!state.running) {
+    return;
+  }
+  if (state.useImagePad) {
     return;
   }
   const currentValue = toneInput.value;
@@ -1240,6 +1400,9 @@ function appendDigit(digit) {
 
 function handleBackspace() {
   if (!state.running) {
+    return;
+  }
+  if (state.useImagePad) {
     return;
   }
   if (!toneInput.value) {
@@ -1396,11 +1559,13 @@ function finalizeRun() {
     return;
   }
   let message = baseMessage;
+  const highscores =
+    state.toneMode === "images" ? progress.highscoresImage : progress.highscores;
   const previousHigh = getHighScore(state.levelId);
   const previousMedals = getMedalTierIds(previousHigh);
   let isHighScore = false;
   if (state.score > previousHigh) {
-    progress.highscores[state.levelId] = state.score;
+    highscores[state.levelId] = state.score;
     message = `${message} New high score!`;
     isHighScore = true;
   }
@@ -1784,6 +1949,9 @@ startBtn.addEventListener("click", () => {
 });
 
 toneInput.addEventListener("input", () => {
+  if (state.useImagePad) {
+    return;
+  }
   handleToneValue(toneInput.value);
 });
 
@@ -1873,6 +2041,8 @@ if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
   });
 }
 
+configureToneModeButtons();
+renderImagePad();
 resizeCanvas();
 renderLevelOptions();
 updateToneLabels();
