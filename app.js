@@ -395,9 +395,10 @@ const state = {
   useKeypad: false,
   toneMode: progress.toneMode,
   useNumberLabels: progress.toneMode !== "symbols",
-  useImagePad: progress.toneMode === "images",
+  useImagePad: progress.toneMode === "images" || progress.toneMode === "shuffle",
   useVisDrops: progress.toneMode === "vis",
   hannesMode: HANNES_MODE,
+  imagePadOrder: IMAGE_PAD_TONES.slice(),
   score: 0,
   lives: 3,
   lastFrame: 0,
@@ -490,6 +491,9 @@ function normalizeToneMode(mode) {
     if (mode === "images") {
       return "images";
     }
+    if (mode === "shuffle") {
+      return "shuffle";
+    }
     if (mode === "vis") {
       return "vis";
     }
@@ -502,6 +506,9 @@ function getUnlockMode() {
   if (state.toneMode === "images") {
     return "images";
   }
+  if (state.toneMode === "shuffle") {
+    return "shuffle";
+  }
   if (state.toneMode === "vis") {
     return "vis";
   }
@@ -513,9 +520,11 @@ function loadProgress() {
     unlocked: new Set(),
     unlockedImage: new Set(),
     unlockedVis: new Set(),
+    unlockedShuffle: new Set(),
     highscores: {},
     highscoresImage: {},
     highscoresVis: {},
+    highscoresShuffle: {},
     lastLevel: null,
     toneMode: "numbers",
   };
@@ -528,10 +537,12 @@ function loadProgress() {
     const unlocked = Array.isArray(data.unlocked) ? data.unlocked : [];
     const unlockedImage = Array.isArray(data.unlockedImage) ? data.unlockedImage : [];
     const unlockedVis = Array.isArray(data.unlockedVis) ? data.unlockedVis : [];
+    const unlockedShuffle = Array.isArray(data.unlockedShuffle) ? data.unlockedShuffle : [];
     return {
       unlocked: new Set(unlocked),
       unlockedImage: new Set(unlockedImage),
       unlockedVis: new Set(unlockedVis),
+      unlockedShuffle: new Set(unlockedShuffle),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
       highscoresImage:
         data.highscoresImage && typeof data.highscoresImage === "object"
@@ -540,6 +551,10 @@ function loadProgress() {
       highscoresVis:
         data.highscoresVis && typeof data.highscoresVis === "object"
           ? data.highscoresVis
+          : {},
+      highscoresShuffle:
+        data.highscoresShuffle && typeof data.highscoresShuffle === "object"
+          ? data.highscoresShuffle
           : {},
       lastLevel: typeof data.lastLevel === "string" ? data.lastLevel : null,
       toneMode: normalizeToneMode(data.toneMode),
@@ -557,9 +572,11 @@ function saveProgress() {
         unlocked: Array.from(progress.unlocked),
         unlockedImage: Array.from(progress.unlockedImage ?? []),
         unlockedVis: Array.from(progress.unlockedVis ?? []),
+        unlockedShuffle: Array.from(progress.unlockedShuffle ?? []),
         highscores: progress.highscores,
         highscoresImage: progress.highscoresImage,
         highscoresVis: progress.highscoresVis,
+        highscoresShuffle: progress.highscoresShuffle,
         lastLevel: progress.lastLevel,
         toneMode: progress.toneMode,
       })
@@ -589,6 +606,7 @@ function ensureBaseUnlocks() {
       progress.unlocked.add(level.id);
       progress.unlockedImage.add(level.id);
       progress.unlockedVis.add(level.id);
+      progress.unlockedShuffle.add(level.id);
     }
   });
 }
@@ -618,6 +636,14 @@ function ensureBranchUnlocks() {
       saveProgress();
     }
   }
+  if (progress.unlockedShuffle.has("4x")) {
+    let changed = false;
+    changed = unlockLevel("x1", "shuffle") || changed;
+    changed = unlockLevel("1-44-slow", "shuffle") || changed;
+    if (changed) {
+      saveProgress();
+    }
+  }
 }
 
 function normalizeProgress() {
@@ -627,6 +653,9 @@ function normalizeProgress() {
   }
   if (!progress.unlockedVis) {
     progress.unlockedVis = new Set();
+  }
+  if (!progress.unlockedShuffle) {
+    progress.unlockedShuffle = new Set();
   }
   if (progress.unlocked.has("1x-4x")) {
     progress.unlocked.delete("1x-4x");
@@ -657,6 +686,11 @@ function normalizeProgress() {
       progress.unlockedVis.delete(id);
     }
   });
+  progress.unlockedShuffle.forEach((id) => {
+    if (!validIds.has(id)) {
+      progress.unlockedShuffle.delete(id);
+    }
+  });
   if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
     progress.lastLevel = null;
   }
@@ -665,6 +699,9 @@ function normalizeProgress() {
   }
   if (!progress.highscoresVis || typeof progress.highscoresVis !== "object") {
     progress.highscoresVis = {};
+  }
+  if (!progress.highscoresShuffle || typeof progress.highscoresShuffle !== "object") {
+    progress.highscoresShuffle = {};
   }
   progress.toneMode = normalizeToneMode(progress.toneMode);
   saveProgress();
@@ -684,7 +721,13 @@ function getNextLevel(levelId) {
 
 function unlockLevel(levelId, mode = "numbers") {
   const unlockedSet =
-    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
+    mode === "images"
+      ? progress.unlockedImage
+      : mode === "vis"
+        ? progress.unlockedVis
+        : mode === "shuffle"
+          ? progress.unlockedShuffle
+          : progress.unlocked;
   if (unlockedSet.has(levelId)) {
     return false;
   }
@@ -699,7 +742,13 @@ function unlockUpToLevel(levelId, mode = "numbers") {
   }
   let unlockedAny = false;
   const unlockedSet =
-    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
+    mode === "images"
+      ? progress.unlockedImage
+      : mode === "vis"
+        ? progress.unlockedVis
+        : mode === "shuffle"
+          ? progress.unlockedShuffle
+          : progress.unlocked;
   for (let i = 0; i <= index; i += 1) {
     const level = LEVELS[i];
     if (!unlockedSet.has(level.id)) {
@@ -716,7 +765,13 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
     return true;
   }
   const unlockedSet =
-    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
+    mode === "images"
+      ? progress.unlockedImage
+      : mode === "vis"
+        ? progress.unlockedVis
+        : mode === "shuffle"
+          ? progress.unlockedShuffle
+          : progress.unlocked;
   for (let i = 0; i < index; i += 1) {
     if (!unlockedSet.has(LEVELS[i].id)) {
       return false;
@@ -727,7 +782,13 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
 
 function isLevelUnlocked(levelId, mode = "numbers") {
   const unlockedSet =
-    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
+    mode === "images"
+      ? progress.unlockedImage
+      : mode === "vis"
+        ? progress.unlockedVis
+        : mode === "shuffle"
+          ? progress.unlockedShuffle
+          : progress.unlocked;
   return unlockedSet.has(levelId);
 }
 
@@ -833,6 +894,8 @@ function getHighScore(levelId) {
       ? progress.highscoresImage
       : state.toneMode === "vis"
         ? progress.highscoresVis
+        : state.toneMode === "shuffle"
+          ? progress.highscoresShuffle
         : progress.highscores;
   return Number(highscores[levelId]) || 0;
 }
@@ -862,7 +925,8 @@ function configureToneModeButtons() {
   }
   const numbersButton = toneModeButtons[0];
   const altButton = toneModeButtons[1];
-  const visButton = toneModeButtons[2];
+  const shuffleButton = toneModeButtons[2];
+  const visButton = toneModeButtons[3];
   if (numbersButton) {
     numbersButton.dataset.mode = "numbers";
     numbersButton.textContent = "123";
@@ -872,6 +936,10 @@ function configureToneModeButtons() {
     altButton.dataset.mode = HANNES_MODE ? "images" : "symbols";
     altButton.textContent = HANNES_MODE ? "Images" : "Symbols";
     altButton.setAttribute("aria-label", HANNES_MODE ? "Images" : "Symbols");
+  }
+  if (shuffleButton) {
+    shuffleButton.dataset.mode = "shuffle";
+    shuffleButton.hidden = !HANNES_MODE;
   }
   if (visButton) {
     visButton.dataset.mode = "vis";
@@ -886,7 +954,8 @@ function renderImagePad() {
     return;
   }
   imagePad.replaceChildren();
-  IMAGE_PAD_TONES.forEach((tones) => {
+  const tonesOrder = state.imagePadOrder && state.imagePadOrder.length ? state.imagePadOrder : IMAGE_PAD_TONES;
+  tonesOrder.forEach((tones) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "image-pad__btn";
@@ -911,6 +980,16 @@ function renderImagePad() {
   imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
 }
 
+function shuffleImagePadOrder() {
+  const order = [...IMAGE_PAD_TONES];
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  state.imagePadOrder = order;
+  renderImagePad();
+}
+
 function getToneImage(tones) {
   if (!toneImageCache.has(tones)) {
     const img = new Image();
@@ -928,13 +1007,19 @@ function setToneMode(mode, { persist = true } = {}) {
   progress.toneMode = normalized;
   state.toneMode = normalized;
   state.useNumberLabels = normalized !== "symbols";
-  state.useImagePad = normalized === "images";
+  state.useImagePad = normalized === "images" || normalized === "shuffle";
   state.useVisDrops = normalized === "vis";
   gameRoot?.classList.toggle("game--image-mode", state.useImagePad);
   gameRoot?.classList.toggle("game--vis-mode", state.useVisDrops);
   if (state.useImagePad) {
     toneInput.value = "";
     clearInputTimer();
+    if (normalized === "shuffle") {
+      shuffleImagePadOrder();
+    } else {
+      state.imagePadOrder = IMAGE_PAD_TONES.slice();
+      renderImagePad();
+    }
   }
   if (persist) {
     saveProgress();
@@ -1402,6 +1487,9 @@ function getToneModeLabel() {
   if (state.toneMode === "images") {
     return "images";
   }
+  if (state.toneMode === "shuffle") {
+    return "images";
+  }
   if (state.toneMode === "vis") {
     return "numbers";
   }
@@ -1416,6 +1504,7 @@ function formatLevelLabel(label) {
 }
 
 function updateToneLabels() {
+  const usesImages = state.toneMode === "images" || state.toneMode === "shuffle";
   keypadButtons.forEach((button) => {
     const digit = button.dataset.digit;
     const label = formatToneDigit(digit);
@@ -1429,13 +1518,13 @@ function updateToneLabels() {
     toneModeLabel.textContent = getToneModeLabel();
   }
   if (toneModeAction) {
-    toneModeAction.textContent = state.toneMode === "images" ? "tap" : "type";
+    toneModeAction.textContent = usesImages ? "tap" : "type";
   }
   if (toneHeadingMode) {
     toneHeadingMode.textContent = getToneModeLabel();
   }
   if (toneHeadingAction) {
-    toneHeadingAction.textContent = state.toneMode === "images" ? "tap" : "type";
+    toneHeadingAction.textContent = usesImages ? "tap" : "type";
   }
   if (toneExample) {
     toneExample.textContent = state.useNumberLabels
@@ -1443,7 +1532,7 @@ function updateToneLabels() {
       : `${formatToneDigit("2")}${formatToneDigit("3")}`;
   }
   if (toneExampleWrap) {
-    toneExampleWrap.hidden = state.toneMode === "images";
+    toneExampleWrap.hidden = usesImages;
   }
   updateToneModeToggle();
   updateLevelPickerButton();
@@ -1639,6 +1728,14 @@ function startGame() {
     setStatus("No words loaded for this level.");
     return;
   }
+  if (
+    state.toneMode === "shuffle" &&
+    !state.running &&
+    state.score === 0 &&
+    drops.length === 0
+  ) {
+    shuffleImagePadOrder();
+  }
   hideBird();
   hudEl?.removeAttribute("hidden");
   inputPanelTextEl?.removeAttribute("hidden");
@@ -1715,7 +1812,13 @@ function maybeUnlockNextLevel() {
   }
 
   const unlockedSet =
-    mode === "images" ? progress.unlockedImage : mode === "vis" ? progress.unlockedVis : progress.unlocked;
+    mode === "images"
+      ? progress.unlockedImage
+      : mode === "vis"
+        ? progress.unlockedVis
+        : mode === "shuffle"
+          ? progress.unlockedShuffle
+          : progress.unlocked;
   if (unlockedSet.has("4x")) {
     unlockedAny = unlockLevel("x1", mode) || unlockedAny;
     unlockedAny = unlockLevel("1-44-slow", mode) || unlockedAny;
@@ -1740,6 +1843,8 @@ function finalizeRun() {
       ? progress.highscoresImage
       : state.toneMode === "vis"
         ? progress.highscoresVis
+        : state.toneMode === "shuffle"
+          ? progress.highscoresShuffle
         : progress.highscores;
   const previousHigh = getHighScore(state.levelId);
   const previousMedals = getMedalTierIds(previousHigh);
