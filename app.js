@@ -1000,6 +1000,9 @@ function speak(text, { force = false } = {}) {
   if (!window.speechSynthesis) {
     return;
   }
+  if (state.toneMode === "vis") {
+    return;
+  }
   const now = performance.now();
   const synth = window.speechSynthesis;
   if (!force && now - lastSpeakAt < SPEECH_MIN_INTERVAL_MS && synth.speaking) {
@@ -1490,6 +1493,9 @@ function updateInputEnabled() {
   imagePadButtons.forEach((button) => {
     button.disabled = !state.running || !state.useImagePad;
   });
+  if (replayBtn) {
+    replayBtn.disabled = state.toneMode === "vis";
+  }
   updateInputVisibility();
   updateLevelPickerButton();
 }
@@ -1620,7 +1626,9 @@ function spawnDrop() {
   };
   drops.push(drop);
   lastSpoken = drop;
-  speak(drop.text);
+  if (!isVis) {
+    speak(drop.text);
+  }
 }
 
 function startGame() {
@@ -1974,33 +1982,37 @@ function drawVisDrop(drop) {
   const image = drop.image;
 
   ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(left + VIS_DROP_RADIUS, top);
-  ctx.arcTo(left + size, top, left + size, top + size, VIS_DROP_RADIUS);
-  ctx.arcTo(left + size, top + size, left, top + size, VIS_DROP_RADIUS);
-  ctx.arcTo(left, top + size, left, top, VIS_DROP_RADIUS);
-  ctx.arcTo(left, top, left + size, top, VIS_DROP_RADIUS);
-  ctx.closePath();
+  roundedRectPath(ctx, left, top, size, size, VIS_DROP_RADIUS);
   ctx.fillStyle = "rgba(8, 54, 69, 0.7)";
   ctx.fill();
   ctx.strokeStyle = "rgba(145, 229, 246, 0.35)";
   ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.strokeStyle = "rgba(145, 229, 246, 0.2)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(left + 1, top + 1, size - 2, size - 2);
-
-  if (image && image.complete) {
+  if (image && image.complete && image.naturalWidth) {
     const inner = size - VIS_DROP_PADDING * 2;
-    ctx.drawImage(
-      image,
-      left + VIS_DROP_PADDING,
-      top + VIS_DROP_PADDING,
-      inner,
-      inner
-    );
+    const innerLeft = left + VIS_DROP_PADDING;
+    const innerTop = top + VIS_DROP_PADDING;
+    const innerRadius = Math.max(2, VIS_DROP_RADIUS - VIS_DROP_PADDING);
+    ctx.save();
+    roundedRectPath(ctx, innerLeft, innerTop, inner, inner, innerRadius);
+    ctx.clip();
+    ctx.drawImage(image, innerLeft, innerTop, inner, inner);
+    ctx.restore();
+  } else if (image && !image.complete) {
+    image.addEventListener("load", () => {}, { once: true });
   }
   ctx.restore();
+}
+
+function roundedRectPath(context, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
 }
 
 function drawSplashes(delta) {
@@ -2129,6 +2141,9 @@ function tick(timestamp) {
 }
 
 function handlePointer(event) {
+  if (state.toneMode === "vis") {
+    return;
+  }
   if (!drops.length) {
     return;
   }
@@ -2169,6 +2184,9 @@ toneInput.addEventListener("input", () => {
 });
 
 replayBtn.addEventListener("click", () => {
+  if (state.toneMode === "vis") {
+    return;
+  }
   if (!lastSpoken) {
     return;
   }
