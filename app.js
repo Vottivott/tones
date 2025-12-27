@@ -13,8 +13,11 @@ const inputPanelTextEl = document.querySelector(".input-panel__text");
 const arena = document.querySelector(".arena");
 const toneInput = document.getElementById("toneInput");
 const toneHeadingMode = document.getElementById("toneHeadingMode");
+const toneHeadingAction = document.getElementById("toneHeadingAction");
 const toneModeLabel = document.getElementById("toneModeLabel");
+const toneModeAction = document.getElementById("toneModeAction");
 const toneExample = document.getElementById("toneExample");
+const toneExampleWrap = document.getElementById("toneExampleWrap");
 const startBtn = document.getElementById("startBtn");
 const replayBtn = document.getElementById("replayBtn");
 const levelSelect = document.getElementById("levelSelect");
@@ -1292,13 +1295,22 @@ function updateToneLabels() {
   if (toneModeLabel) {
     toneModeLabel.textContent = getToneModeLabel();
   }
+  if (toneModeAction) {
+    toneModeAction.textContent = state.toneMode === "images" ? "tap" : "type";
+  }
   if (toneHeadingMode) {
     toneHeadingMode.textContent = getToneModeLabel();
+  }
+  if (toneHeadingAction) {
+    toneHeadingAction.textContent = state.toneMode === "images" ? "tap" : "type";
   }
   if (toneExample) {
     toneExample.textContent = state.useNumberLabels
       ? "23"
       : `${formatToneDigit("2")}${formatToneDigit("3")}`;
+  }
+  if (toneExampleWrap) {
+    toneExampleWrap.hidden = state.toneMode === "images";
   }
   updateToneModeToggle();
   updateLevelPickerButton();
@@ -1347,7 +1359,24 @@ function updateInputEnabled() {
   imagePadButtons.forEach((button) => {
     button.disabled = !state.running || !state.useImagePad;
   });
+  updateInputVisibility();
   updateLevelPickerButton();
+}
+
+function updateInputVisibility() {
+  const showImages = state.useImagePad;
+  if (toneInput) {
+    toneInput.hidden = showImages;
+  }
+  if (backspaceBtn) {
+    backspaceBtn.hidden = showImages;
+  }
+  if (keypad) {
+    keypad.hidden = showImages || !state.useKeypad;
+  }
+  if (imagePad) {
+    imagePad.hidden = !showImages;
+  }
 }
 
 function handleToneValue(value) {
