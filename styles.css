@@ -376,6 +376,10 @@ img.medal {
   display: none;
 }
 
+.game--image-mode .input-panel {
+  padding: 0.35rem;
+}
+
 .game--image-mode .image-pad {
   display: grid;
 }
