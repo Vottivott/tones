@@ -1502,6 +1502,10 @@ function formatToneString(tones) {
     .join("");
 }
 
+function shouldUseImageReveals() {
+  return state.toneMode === "images" || state.toneMode === "shuffle";
+}
+
 function getToneModeLabel() {
   if (state.toneMode === "images") {
     return "images";
@@ -1937,7 +1941,7 @@ function addSplash(x, y, radius) {
   splashes.push({ x, y, radius, life: 0 });
 }
 
-function addReveal(x, y, tones, size, duration = 0.9) {
+function addReveal(x, y, tones, size, duration = 0.9, image = null) {
   reveals.push({
     x,
     y,
@@ -1946,6 +1950,7 @@ function addReveal(x, y, tones, size, duration = 0.9) {
     size,
     life: 0,
     duration,
+    image,
   });
 }
 
@@ -2008,16 +2013,15 @@ function startFinalReveal() {
 
   const remainingDrops = drops.splice(0, drops.length);
   remainingDrops.forEach((drop) => {
-    const reveal = {
-      x: drop.x,
-      y: Math.min(state.safeBottom - 12, drop.y),
-      tones: drop.tones,
-      display: formatToneString(drop.tones),
-      size: Math.max(16, drop.radius * 0.7),
-      life: 0,
-      duration: 0.5,
-    };
-    reveals.push(reveal);
+    const revealImage = shouldUseImageReveals() ? getToneImage(drop.tones) : null;
+    addReveal(
+      drop.x,
+      Math.min(state.safeBottom - 12, drop.y),
+      drop.tones,
+      Math.max(16, drop.radius * 0.7),
+      0.5,
+      revealImage
+    );
   });
 
   const start = performance.now();
@@ -2060,12 +2064,14 @@ function missDrop(drop) {
   state.lives -= 1;
   updateHud();
   const revealDuration = state.lives <= 0 ? 0.5 : 0.9;
+  const revealImage = shouldUseImageReveals() ? getToneImage(drop.tones) : null;
   addReveal(
     drop.x,
     Math.min(state.safeBottom - 12, drop.y),
     drop.tones,
     Math.max(16, drop.radius * 0.7),
-    revealDuration
+    revealDuration,
+    revealImage
   );
   if (state.lives <= 0) {
     startFinalReveal();
@@ -2191,6 +2197,10 @@ function drawReveals(delta) {
     const alpha = 0.95 - progressLife * 0.95;
     const y = reveal.y - progressLife * 18;
 
+    if (reveal.image) {
+      drawRevealImage(reveal, y, alpha);
+    }
+
     ctx.save();
     ctx.font = `700 ${reveal.size}px "Fira Sans", "Noto Sans SC", sans-serif`;
     ctx.textAlign = "center";
@@ -2202,6 +2212,36 @@ function drawReveals(delta) {
     ctx.fillText(reveal.display || reveal.tones, reveal.x, y);
     ctx.restore();
   }
+}
+
+function drawRevealImage(reveal, y, alpha) {
+  const size = Math.max(48, reveal.size * 2.6);
+  const half = size / 2;
+  const left = reveal.x - half;
+  const top = y - half;
+  const image = reveal.image;
+  const radius = Math.min(VIS_DROP_RADIUS, size / 4);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  roundedRectPath(ctx, left, top, size, size, radius);
+  ctx.fillStyle = "rgba(8, 54, 69, 0.7)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(145, 229, 246, 0.35)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  if (image && image.complete && image.naturalWidth) {
+    const inner = size - VIS_DROP_PADDING * 2;
+    const innerLeft = left + VIS_DROP_PADDING;
+    const innerTop = top + VIS_DROP_PADDING;
+    const innerRadius = Math.max(2, radius - VIS_DROP_PADDING);
+    ctx.save();
+    roundedRectPath(ctx, innerLeft, innerTop, inner, inner, innerRadius);
+    ctx.clip();
+    ctx.drawImage(image, innerLeft, innerTop, inner, inner);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 function drawTranslations(delta) {
