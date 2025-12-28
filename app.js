@@ -352,6 +352,14 @@ const LEVELS = [
   { id: "x3", label: "x3", tones: DOUBLE_TONES_X3, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   { id: "x4", label: "x4", tones: DOUBLE_TONES_X4, unlockScore: 20, speedScale: 1, spawnScale: 1 },
   {
+    id: "1-44-super-slow",
+    label: "1-44 (Super Slow)",
+    tones: [...SINGLE_TONES, ...DOUBLE_TONES],
+    unlockScore: 20,
+    speedScale: 0.6,
+    spawnScale: 1.35,
+  },
+  {
     id: "1-44-slow",
     label: "1-44 (Slow)",
     tones: [...SINGLE_TONES, ...DOUBLE_TONES],
@@ -616,6 +624,7 @@ function ensureBranchUnlocks() {
   if (progress.unlocked.has("4x")) {
     let changed = false;
     changed = unlockLevel("x1") || changed;
+    changed = unlockLevel("1-44-super-slow") || changed;
     changed = unlockLevel("1-44-slow") || changed;
     if (changed) {
       saveProgress();
@@ -624,6 +633,7 @@ function ensureBranchUnlocks() {
   if (progress.unlockedImage.has("4x")) {
     let changed = false;
     changed = unlockLevel("x1", "images") || changed;
+    changed = unlockLevel("1-44-super-slow", "images") || changed;
     changed = unlockLevel("1-44-slow", "images") || changed;
     if (changed) {
       saveProgress();
@@ -632,6 +642,7 @@ function ensureBranchUnlocks() {
   if (progress.unlockedVis.has("4x")) {
     let changed = false;
     changed = unlockLevel("x1", "vis") || changed;
+    changed = unlockLevel("1-44-super-slow", "vis") || changed;
     changed = unlockLevel("1-44-slow", "vis") || changed;
     if (changed) {
       saveProgress();
@@ -640,6 +651,7 @@ function ensureBranchUnlocks() {
   if (progress.unlockedShuffle.has("4x")) {
     let changed = false;
     changed = unlockLevel("x1", "shuffle") || changed;
+    changed = unlockLevel("1-44-super-slow", "shuffle") || changed;
     changed = unlockLevel("1-44-slow", "shuffle") || changed;
     if (changed) {
       saveProgress();
@@ -661,6 +673,18 @@ function normalizeProgress() {
   if (progress.unlocked.has("1x-4x")) {
     progress.unlocked.delete("1x-4x");
     ["1x", "2x", "3x", "4x"].forEach((id) => progress.unlocked.add(id));
+  }
+  if (progress.unlocked.has("1-44-slow")) {
+    progress.unlocked.add("1-44-super-slow");
+  }
+  if (progress.unlockedImage.has("1-44-slow")) {
+    progress.unlockedImage.add("1-44-super-slow");
+  }
+  if (progress.unlockedVis.has("1-44-slow")) {
+    progress.unlockedVis.add("1-44-super-slow");
+  }
+  if (progress.unlockedShuffle.has("1-44-slow")) {
+    progress.unlockedShuffle.add("1-44-super-slow");
   }
   if (progress.lastLevel === "1x-4x") {
     progress.lastLevel = "1x";
@@ -1860,6 +1884,7 @@ function maybeUnlockNextLevel() {
           : progress.unlocked;
   if (unlockedSet.has("4x")) {
     unlockedAny = unlockLevel("x1", mode) || unlockedAny;
+    unlockedAny = unlockLevel("1-44-super-slow", mode) || unlockedAny;
     unlockedAny = unlockLevel("1-44-slow", mode) || unlockedAny;
   }
 
