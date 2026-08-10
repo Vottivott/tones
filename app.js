@@ -558,6 +558,9 @@ function getToneModeOverride() {
 }
 
 function normalizeToneMode(mode) {
+  if (mode === "meaning") {
+    return "meaning";
+  }
   if (HANNES_MODE) {
     if (mode === "images") {
       return "images";
@@ -567,9 +570,6 @@ function normalizeToneMode(mode) {
     }
     if (mode === "vis") {
       return "vis";
-    }
-    if (mode === "meaning") {
-      return "meaning";
     }
     return "numbers";
   }
@@ -1089,7 +1089,7 @@ function configureToneModeButtons() {
     meaningButton.dataset.mode = "meaning";
     meaningButton.textContent = "Meanings";
     meaningButton.setAttribute("aria-label", "Meanings");
-    meaningButton.hidden = !HANNES_MODE;
+    meaningButton.hidden = false;
   }
 }
 
