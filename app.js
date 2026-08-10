@@ -392,6 +392,16 @@ const DOUBLE_TONES_X2 = DOUBLE_TONES.filter((tone) => tone.endsWith("2"));
 const DOUBLE_TONES_X3 = DOUBLE_TONES.filter((tone) => tone.endsWith("3"));
 const DOUBLE_TONES_X4 = DOUBLE_TONES.filter((tone) => tone.endsWith("4"));
 
+const MEANING_INTRO_LEVELS = MEANING_TONE_SETS.map((set, index) => ({
+  id: `meaning-${set.id}`,
+  label: set.label,
+  tones: SINGLE_TONES,
+  unlockScore: index === 0 ? 0 : 20,
+  speedScale: 1,
+  spawnScale: 1,
+  meaningSetId: set.id,
+}));
+
 const LEVELS = [
   { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0, speedScale: 1, spawnScale: 1 },
   { id: "1x", label: "1x", tones: DOUBLE_TONES_1X, unlockScore: 20, speedScale: 1, spawnScale: 1 },
@@ -427,8 +437,10 @@ const LEVELS = [
     spawnScale: 1,
   },
 ];
+const MEANING_LEVELS = [...MEANING_INTRO_LEVELS, ...LEVELS];
+const ALL_LEVELS = [...MEANING_INTRO_LEVELS, ...LEVELS];
 
-LEVELS.forEach((level) => {
+ALL_LEVELS.forEach((level) => {
   level.wordPool = buildWordPool(level.tones);
 });
 
@@ -687,6 +699,21 @@ function buildWordPool(tones) {
   return pool;
 }
 
+function getLevelsForMode(mode = "numbers") {
+  return mode === "meaning" ? MEANING_LEVELS : LEVELS;
+}
+
+function getLevelUnlockScore(level, mode = "numbers") {
+  if (mode === "meaning" && level.id === "1-4") {
+    return 20;
+  }
+  return level.unlockScore;
+}
+
+function getMeaningSetById(id) {
+  return MEANING_TONE_SETS.find((set) => set.id === id) || null;
+}
+
 function ensureBaseUnlocks() {
   LEVELS.forEach((level) => {
     if (level.unlockScore === 0) {
@@ -694,6 +721,10 @@ function ensureBaseUnlocks() {
       progress.unlockedImage.add(level.id);
       progress.unlockedVis.add(level.id);
       progress.unlockedShuffle.add(level.id);
+    }
+  });
+  getLevelsForMode("meaning").forEach((level) => {
+    if (getLevelUnlockScore(level, "meaning") === 0) {
       progress.unlockedMeaning.add(level.id);
     }
   });
@@ -748,7 +779,7 @@ function ensureBranchUnlocks() {
 }
 
 function normalizeProgress() {
-  const validIds = new Set(LEVELS.map((level) => level.id));
+  const validIds = new Set(ALL_LEVELS.map((level) => level.id));
   if (!progress.unlockedImage) {
     progress.unlockedImage = new Set();
   }
@@ -835,15 +866,16 @@ function normalizeProgress() {
 }
 
 function getLevelById(levelId) {
-  return LEVELS.find((level) => level.id === levelId) || LEVELS[0];
+  return ALL_LEVELS.find((level) => level.id === levelId) || LEVELS[0];
 }
 
-function getNextLevel(levelId) {
-  const index = LEVELS.findIndex((level) => level.id === levelId);
+function getNextLevel(levelId, mode = "numbers") {
+  const levels = getLevelsForMode(mode);
+  const index = levels.findIndex((level) => level.id === levelId);
   if (index === -1) {
     return null;
   }
-  return LEVELS[index + 1] || null;
+  return levels[index + 1] || null;
 }
 
 function unlockLevel(levelId, mode = "numbers") {
@@ -865,7 +897,8 @@ function unlockLevel(levelId, mode = "numbers") {
 }
 
 function unlockUpToLevel(levelId, mode = "numbers") {
-  const index = LEVELS.findIndex((level) => level.id === levelId);
+  const levels = getLevelsForMode(mode);
+  const index = levels.findIndex((level) => level.id === levelId);
   if (index === -1) {
     return false;
   }
@@ -881,7 +914,7 @@ function unlockUpToLevel(levelId, mode = "numbers") {
             ? progress.unlockedMeaning
           : progress.unlocked;
   for (let i = 0; i <= index; i += 1) {
-    const level = LEVELS[i];
+    const level = levels[i];
     if (!unlockedSet.has(level.id)) {
       unlockedSet.add(level.id);
       unlockedAny = true;
@@ -891,7 +924,8 @@ function unlockUpToLevel(levelId, mode = "numbers") {
 }
 
 function areAllPreviousUnlocked(levelId, mode = "numbers") {
-  const index = LEVELS.findIndex((level) => level.id === levelId);
+  const levels = getLevelsForMode(mode);
+  const index = levels.findIndex((level) => level.id === levelId);
   if (index <= 0) {
     return true;
   }
@@ -906,7 +940,7 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
             ? progress.unlockedMeaning
           : progress.unlocked;
   for (let i = 0; i < index; i += 1) {
-    if (!unlockedSet.has(LEVELS[i].id)) {
+    if (!unlockedSet.has(levels[i].id)) {
       return false;
     }
   }
@@ -965,7 +999,7 @@ function renderLevelOverlay() {
   }
   levelList.replaceChildren();
   const mode = getUnlockMode();
-  LEVELS.forEach((level) => {
+  getLevelsForMode(mode).forEach((level) => {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "level-card";
@@ -998,14 +1032,14 @@ function renderLevelOverlay() {
 function renderLevelOptions() {
   levelSelect.innerHTML = "";
   const mode = getUnlockMode();
-  LEVELS.forEach((level) => {
+  getLevelsForMode(mode).forEach((level) => {
     const option = document.createElement("option");
     const unlocked = isLevelUnlocked(level.id, mode);
     option.value = level.id;
     const displayLabel = formatLevelLabel(level.label);
     option.textContent = unlocked
       ? displayLabel
-      : `${displayLabel} (Unlock ${level.unlockScore})`;
+      : `${displayLabel} (Unlock ${getLevelUnlockScore(level, mode)})`;
     option.disabled = !unlocked;
     levelSelect.appendChild(option);
   });
@@ -1013,7 +1047,7 @@ function renderLevelOptions() {
   if (isLevelUnlocked(state.levelId, mode)) {
     levelSelect.value = state.levelId;
   } else {
-    const firstUnlocked = LEVELS.find((level) => isLevelUnlocked(level.id, mode));
+    const firstUnlocked = getLevelsForMode(mode).find((level) => isLevelUnlocked(level.id, mode));
     if (firstUnlocked) {
       levelSelect.value = firstUnlocked.id;
     }
@@ -1118,6 +1152,10 @@ function pickMeaningSet(excludeId = null) {
   return candidates[Math.floor(Math.random() * candidates.length)] || MEANING_TONE_SETS[0];
 }
 
+function getFixedMeaningSetForLevel(level = getLevelById(state.levelId)) {
+  return level?.meaningSetId ? getMeaningSetById(level.meaningSetId) : null;
+}
+
 function setMeaningSet(set, { render = true } = {}) {
   if (!set) {
     return;
@@ -1131,6 +1169,13 @@ function setMeaningSet(set, { render = true } = {}) {
 }
 
 function ensureMeaningSet({ render = true } = {}) {
+  const fixedSet = getFixedMeaningSetForLevel();
+  if (fixedSet) {
+    if (state.meaningSet?.id !== fixedSet.id) {
+      setMeaningSet(fixedSet, { render });
+    }
+    return fixedSet;
+  }
   if (!state.meaningSet) {
     setMeaningSet(pickMeaningSet(), { render });
   }
@@ -1138,7 +1183,7 @@ function ensureMeaningSet({ render = true } = {}) {
 }
 
 function queueMeaningSetChange() {
-  if (!isMeaningMode() || drops.length) {
+  if (!isMeaningMode() || getFixedMeaningSetForLevel() || drops.length) {
     return;
   }
   state.meaningSetChangeAt = performance.now() + MEANING_SET_CHANGE_DELAY_MS;
@@ -1151,6 +1196,7 @@ function maybeAdvanceMeaningSet(timestamp) {
     splashes.length ||
     reveals.length ||
     translations.length ||
+    getFixedMeaningSetForLevel() ||
     !state.meaningSetChangeAt
   ) {
     return;
@@ -1311,7 +1357,7 @@ function setToneMode(mode, { persist = true } = {}) {
     if (normalized === "shuffle") {
       shuffleImagePadOrder();
     } else if (normalized === "meaning") {
-      setMeaningSet(pickMeaningSet(state.meaningSet?.id));
+      setMeaningSet(getFixedMeaningSetForLevel() || pickMeaningSet(state.meaningSet?.id));
     } else {
       state.imagePadOrder = IMAGE_PAD_TONES.slice();
       renderImagePad();
@@ -1322,7 +1368,9 @@ function setToneMode(mode, { persist = true } = {}) {
   }
   renderLevelOptions();
   if (!isLevelUnlocked(state.levelId, getUnlockMode())) {
-    const firstUnlocked = LEVELS.find((level) => isLevelUnlocked(level.id, getUnlockMode()));
+    const firstUnlocked = getLevelsForMode(getUnlockMode()).find((level) =>
+      isLevelUnlocked(level.id, getUnlockMode())
+    );
     if (firstUnlocked) {
       setLevel(firstUnlocked.id, { announce: false });
     }
@@ -1350,6 +1398,9 @@ function setLevel(levelId, { announce = true } = {}) {
   state.wordPool = level.wordPool;
   state.speedScale = level.speedScale ?? 1;
   state.spawnScale = level.spawnScale ?? 1;
+  if (isMeaningMode()) {
+    setMeaningSet(getFixedMeaningSetForLevel(level) || pickMeaningSet(state.meaningSet?.id));
+  }
   progress.lastLevel = level.id;
   saveProgress();
   updateHighScore();
@@ -2133,12 +2184,16 @@ function resetGame() {
 }
 
 function maybeUnlockNextLevel() {
-  const nextLevel = getNextLevel(state.levelId);
   let unlockedLevel = null;
   let unlockedAny = false;
   const mode = getUnlockMode();
+  const nextLevel = getNextLevel(state.levelId, mode);
 
-  if (nextLevel && !isLevelUnlocked(nextLevel.id, mode) && state.score >= nextLevel.unlockScore) {
+  if (
+    nextLevel &&
+    !isLevelUnlocked(nextLevel.id, mode) &&
+    state.score >= getLevelUnlockScore(nextLevel, mode)
+  ) {
     if (nextLevel.id === "1-44" && !areAllPreviousUnlocked(nextLevel.id, mode)) {
       return null;
     }
@@ -2773,9 +2828,13 @@ const initialLevel =
   progress.lastLevel && isLevelUnlocked(progress.lastLevel, "numbers")
     ? progress.lastLevel
     : LEVELS[0].id;
+const initialMode = getUnlockMode();
+const initialModeLevel =
+  getLevelsForMode(initialMode).find((level) => isLevelUnlocked(level.id, initialMode)) ||
+  LEVELS[0];
 setLevel(
   state.toneMode === "images" || state.toneMode === "vis" || state.toneMode === "meaning"
-    ? LEVELS[0].id
+    ? initialModeLevel.id
     : initialLevel,
   {
   announce: false,
