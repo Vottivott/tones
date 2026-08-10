@@ -588,12 +588,14 @@ body.bird-active .game {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0;
 }
 
 .level-dialog__actions {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  min-width: 0;
 }
 
 .mode-toggle {
@@ -604,6 +606,7 @@ body.bird-active .game {
   border-radius: 999px;
   border: 1px solid rgba(145, 229, 246, 0.25);
   background: rgba(3, 26, 36, 0.55);
+  min-width: 0;
 }
 
 .mode-toggle__btn {
@@ -849,6 +852,38 @@ input#toneInput:focus {
     height: 100%;
     max-height: none;
     border-radius: 0;
+  }
+
+  .level-dialog__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .level-dialog__actions {
+    display: contents;
+  }
+
+  .level-dialog__actions .mode-toggle {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4.4rem, 1fr));
+    border-radius: 16px;
+  }
+
+  .level-dialog__actions #levelClose {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .mode-toggle__btn {
+    min-height: 2rem;
+    padding: 0.4rem 0.35rem;
+    border-radius: 12px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
 
   .level-list {
