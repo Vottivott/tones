@@ -1188,6 +1188,11 @@ function renderMeaningPad() {
     img.alt = entry.sv;
     button.appendChild(img);
 
+    const label = document.createElement("span");
+    label.className = "image-pad__label";
+    label.textContent = entry.meaning;
+    button.appendChild(label);
+
     button.addEventListener("click", () => {
       if (!state.useImagePad) {
         return;

@@ -322,6 +322,38 @@ img.medal {
   display: block;
 }
 
+.image-pad__label {
+  display: none;
+}
+
+.game--meaning-mode .image-pad__btn {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 0.2rem;
+  aspect-ratio: 5 / 6;
+  min-width: 0;
+}
+
+.game--meaning-mode .image-pad__btn img {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  object-fit: cover;
+}
+
+.game--meaning-mode .image-pad__label {
+  display: block;
+  color: var(--ink);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.05;
+  min-height: 1.4em;
+  overflow-wrap: anywhere;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .backspace-btn {
   display: none;
   align-items: center;
