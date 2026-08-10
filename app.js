@@ -45,6 +45,7 @@ const BIRD_TYPE_SPEED_MS = 22;
 const BIRD_TYPE_PAUSE_SHORT_MS = 90;
 const BIRD_TYPE_PAUSE_LONG_MS = 180;
 const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
+const MEANING_SET_CHANGE_DELAY_MS = 650;
 const SKIP_33 = true;
 
 const HANNES_MODE = getHannesMode();
@@ -313,6 +314,56 @@ const WORDS_BY_TONE = {
   ],
 };
 
+const MEANING_TONE_SETS = [
+  {
+    id: "ma",
+    label: "ma",
+    entries: [
+      { text: "妈", tones: "1", sv: "mamma", meaning: "mother", glyph: "MOM" },
+      { text: "麻", tones: "2", sv: "hampa; bedövad", meaning: "hemp", glyph: "LEAF" },
+      { text: "马", tones: "3", sv: "häst", meaning: "horse", glyph: "RUN" },
+      { text: "骂", tones: "4", sv: "skälla ut", meaning: "scold", glyph: "!" },
+    ],
+  },
+  {
+    id: "yi",
+    label: "yi",
+    entries: [
+      { text: "衣", tones: "1", sv: "kläder", meaning: "clothes", glyph: "TEE" },
+      { text: "姨", tones: "2", sv: "moster; faster", meaning: "aunt", glyph: "AUNT" },
+      { text: "椅", tones: "3", sv: "stol", meaning: "chair", glyph: "SEAT" },
+      { text: "亿", tones: "4", sv: "hundra miljoner", meaning: "100 million", glyph: "100M" },
+    ],
+  },
+  {
+    id: "shi",
+    label: "shi",
+    entries: [
+      { text: "师", tones: "1", sv: "lärare; mästare", meaning: "teacher", glyph: "ABC" },
+      { text: "十", tones: "2", sv: "tio", meaning: "ten", glyph: "10" },
+      { text: "史", tones: "3", sv: "historia", meaning: "history", glyph: "PAST" },
+      { text: "是", tones: "4", sv: "vara; är", meaning: "is", glyph: "YES" },
+    ],
+  },
+  {
+    id: "ba",
+    label: "ba",
+    entries: [
+      { text: "八", tones: "1", sv: "åtta", meaning: "eight", glyph: "8" },
+      { text: "拔", tones: "2", sv: "dra upp", meaning: "pull", glyph: "PULL" },
+      { text: "把", tones: "3", sv: "hålla; greppa", meaning: "hold", glyph: "HOLD" },
+      { text: "爸", tones: "4", sv: "pappa", meaning: "dad", glyph: "DAD" },
+    ],
+  },
+];
+
+MEANING_TONE_SETS.forEach((set) => {
+  set.entries.forEach((entry) => {
+    entry.familyId = set.id;
+    entry.familyLabel = set.label;
+  });
+});
+
 const SINGLE_TONES = ["1", "2", "3", "4"];
 const DOUBLE_TONES = [
   "11",
@@ -403,10 +454,16 @@ const state = {
   useKeypad: false,
   toneMode: progress.toneMode,
   useNumberLabels: progress.toneMode !== "symbols",
-  useImagePad: progress.toneMode === "images" || progress.toneMode === "shuffle",
+  useImagePad:
+    progress.toneMode === "images" ||
+    progress.toneMode === "shuffle" ||
+    progress.toneMode === "meaning",
   useVisDrops: progress.toneMode === "vis",
   hannesMode: HANNES_MODE,
   imagePadOrder: [],
+  meaningSet: null,
+  meaningPadOrder: [],
+  meaningSetChangeAt: 0,
   score: 0,
   lives: 3,
   lastFrame: 0,
@@ -457,6 +514,7 @@ const IMAGE_PAD_TONES = [
   "44",
 ];
 const toneImageCache = new Map();
+const meaningImageCache = new Map();
 state.imagePadOrder = IMAGE_PAD_TONES.slice();
 
 function getHannesMode() {
@@ -485,6 +543,10 @@ function getHannesMode() {
 
 function getToneModeOverride() {
   const params = new URLSearchParams(window.location.search);
+  const mode = params.get("mode");
+  if (["numbers", "symbols", "images", "shuffle", "vis", "meaning"].includes(mode)) {
+    return normalizeToneMode(mode);
+  }
   const value = params.get("numbers");
   if (value === "0") {
     return HANNES_MODE ? "images" : "symbols";
@@ -506,6 +568,9 @@ function normalizeToneMode(mode) {
     if (mode === "vis") {
       return "vis";
     }
+    if (mode === "meaning") {
+      return "meaning";
+    }
     return "numbers";
   }
   return mode === "symbols" ? "symbols" : "numbers";
@@ -521,6 +586,9 @@ function getUnlockMode() {
   if (state.toneMode === "vis") {
     return "vis";
   }
+  if (state.toneMode === "meaning") {
+    return "meaning";
+  }
   return "numbers";
 }
 
@@ -530,10 +598,12 @@ function loadProgress() {
     unlockedImage: new Set(),
     unlockedVis: new Set(),
     unlockedShuffle: new Set(),
+    unlockedMeaning: new Set(),
     highscores: {},
     highscoresImage: {},
     highscoresVis: {},
     highscoresShuffle: {},
+    highscoresMeaning: {},
     lastLevel: null,
     toneMode: "numbers",
   };
@@ -547,11 +617,13 @@ function loadProgress() {
     const unlockedImage = Array.isArray(data.unlockedImage) ? data.unlockedImage : [];
     const unlockedVis = Array.isArray(data.unlockedVis) ? data.unlockedVis : [];
     const unlockedShuffle = Array.isArray(data.unlockedShuffle) ? data.unlockedShuffle : [];
+    const unlockedMeaning = Array.isArray(data.unlockedMeaning) ? data.unlockedMeaning : [];
     return {
       unlocked: new Set(unlocked),
       unlockedImage: new Set(unlockedImage),
       unlockedVis: new Set(unlockedVis),
       unlockedShuffle: new Set(unlockedShuffle),
+      unlockedMeaning: new Set(unlockedMeaning),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
       highscoresImage:
         data.highscoresImage && typeof data.highscoresImage === "object"
@@ -564,6 +636,10 @@ function loadProgress() {
       highscoresShuffle:
         data.highscoresShuffle && typeof data.highscoresShuffle === "object"
           ? data.highscoresShuffle
+          : {},
+      highscoresMeaning:
+        data.highscoresMeaning && typeof data.highscoresMeaning === "object"
+          ? data.highscoresMeaning
           : {},
       lastLevel: typeof data.lastLevel === "string" ? data.lastLevel : null,
       toneMode: normalizeToneMode(data.toneMode),
@@ -582,10 +658,12 @@ function saveProgress() {
         unlockedImage: Array.from(progress.unlockedImage ?? []),
         unlockedVis: Array.from(progress.unlockedVis ?? []),
         unlockedShuffle: Array.from(progress.unlockedShuffle ?? []),
+        unlockedMeaning: Array.from(progress.unlockedMeaning ?? []),
         highscores: progress.highscores,
         highscoresImage: progress.highscoresImage,
         highscoresVis: progress.highscoresVis,
         highscoresShuffle: progress.highscoresShuffle,
+        highscoresMeaning: progress.highscoresMeaning,
         lastLevel: progress.lastLevel,
         toneMode: progress.toneMode,
       })
@@ -616,6 +694,7 @@ function ensureBaseUnlocks() {
       progress.unlockedImage.add(level.id);
       progress.unlockedVis.add(level.id);
       progress.unlockedShuffle.add(level.id);
+      progress.unlockedMeaning.add(level.id);
     }
   });
 }
@@ -657,6 +736,15 @@ function ensureBranchUnlocks() {
       saveProgress();
     }
   }
+  if (progress.unlockedMeaning.has("4x")) {
+    let changed = false;
+    changed = unlockLevel("x1", "meaning") || changed;
+    changed = unlockLevel("1-44-super-slow", "meaning") || changed;
+    changed = unlockLevel("1-44-slow", "meaning") || changed;
+    if (changed) {
+      saveProgress();
+    }
+  }
 }
 
 function normalizeProgress() {
@@ -669,6 +757,9 @@ function normalizeProgress() {
   }
   if (!progress.unlockedShuffle) {
     progress.unlockedShuffle = new Set();
+  }
+  if (!progress.unlockedMeaning) {
+    progress.unlockedMeaning = new Set();
   }
   if (progress.unlocked.has("1x-4x")) {
     progress.unlocked.delete("1x-4x");
@@ -685,6 +776,9 @@ function normalizeProgress() {
   }
   if (progress.unlockedShuffle.has("1-44-slow")) {
     progress.unlockedShuffle.add("1-44-super-slow");
+  }
+  if (progress.unlockedMeaning.has("1-44-slow")) {
+    progress.unlockedMeaning.add("1-44-super-slow");
   }
   if (progress.lastLevel === "1x-4x") {
     progress.lastLevel = "1x";
@@ -716,6 +810,11 @@ function normalizeProgress() {
       progress.unlockedShuffle.delete(id);
     }
   });
+  progress.unlockedMeaning.forEach((id) => {
+    if (!validIds.has(id)) {
+      progress.unlockedMeaning.delete(id);
+    }
+  });
   if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
     progress.lastLevel = null;
   }
@@ -727,6 +826,9 @@ function normalizeProgress() {
   }
   if (!progress.highscoresShuffle || typeof progress.highscoresShuffle !== "object") {
     progress.highscoresShuffle = {};
+  }
+  if (!progress.highscoresMeaning || typeof progress.highscoresMeaning !== "object") {
+    progress.highscoresMeaning = {};
   }
   progress.toneMode = normalizeToneMode(progress.toneMode);
   saveProgress();
@@ -752,6 +854,8 @@ function unlockLevel(levelId, mode = "numbers") {
         ? progress.unlockedVis
         : mode === "shuffle"
           ? progress.unlockedShuffle
+          : mode === "meaning"
+            ? progress.unlockedMeaning
           : progress.unlocked;
   if (unlockedSet.has(levelId)) {
     return false;
@@ -773,6 +877,8 @@ function unlockUpToLevel(levelId, mode = "numbers") {
         ? progress.unlockedVis
         : mode === "shuffle"
           ? progress.unlockedShuffle
+          : mode === "meaning"
+            ? progress.unlockedMeaning
           : progress.unlocked;
   for (let i = 0; i <= index; i += 1) {
     const level = LEVELS[i];
@@ -796,6 +902,8 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
         ? progress.unlockedVis
         : mode === "shuffle"
           ? progress.unlockedShuffle
+          : mode === "meaning"
+            ? progress.unlockedMeaning
           : progress.unlocked;
   for (let i = 0; i < index; i += 1) {
     if (!unlockedSet.has(LEVELS[i].id)) {
@@ -813,6 +921,8 @@ function isLevelUnlocked(levelId, mode = "numbers") {
         ? progress.unlockedVis
         : mode === "shuffle"
           ? progress.unlockedShuffle
+          : mode === "meaning"
+            ? progress.unlockedMeaning
           : progress.unlocked;
   return unlockedSet.has(levelId);
 }
@@ -921,7 +1031,9 @@ function getHighScore(levelId) {
         ? progress.highscoresVis
         : state.toneMode === "shuffle"
           ? progress.highscoresShuffle
-        : progress.highscores;
+          : state.toneMode === "meaning"
+            ? progress.highscoresMeaning
+            : progress.highscores;
   return Number(highscores[levelId]) || 0;
 }
 
@@ -952,6 +1064,7 @@ function configureToneModeButtons() {
   const altButton = toneModeButtons[1];
   const shuffleButton = toneModeButtons[2];
   const visButton = toneModeButtons[3];
+  const meaningButton = toneModeButtons[4];
   if (numbersButton) {
     numbersButton.dataset.mode = "numbers";
     numbersButton.textContent = "123";
@@ -972,6 +1085,146 @@ function configureToneModeButtons() {
     visButton.setAttribute("aria-label", "Vis");
     visButton.hidden = !HANNES_MODE;
   }
+  if (meaningButton) {
+    meaningButton.dataset.mode = "meaning";
+    meaningButton.textContent = "Meanings";
+    meaningButton.setAttribute("aria-label", "Meanings");
+    meaningButton.hidden = !HANNES_MODE;
+  }
+}
+
+function isMeaningMode() {
+  return state.toneMode === "meaning";
+}
+
+function isImagePadMode(mode = state.toneMode) {
+  return mode === "images" || mode === "shuffle" || mode === "meaning";
+}
+
+function shuffledItems(items) {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function pickMeaningSet(excludeId = null) {
+  const candidates =
+    MEANING_TONE_SETS.length > 1 && excludeId
+      ? MEANING_TONE_SETS.filter((set) => set.id !== excludeId)
+      : MEANING_TONE_SETS;
+  return candidates[Math.floor(Math.random() * candidates.length)] || MEANING_TONE_SETS[0];
+}
+
+function setMeaningSet(set, { render = true } = {}) {
+  if (!set) {
+    return;
+  }
+  state.meaningSet = set;
+  state.meaningPadOrder = shuffledItems(set.entries);
+  state.meaningSetChangeAt = 0;
+  if (render) {
+    renderImagePad();
+  }
+}
+
+function ensureMeaningSet({ render = true } = {}) {
+  if (!state.meaningSet) {
+    setMeaningSet(pickMeaningSet(), { render });
+  }
+  return state.meaningSet;
+}
+
+function queueMeaningSetChange() {
+  if (!isMeaningMode() || drops.length) {
+    return;
+  }
+  state.meaningSetChangeAt = performance.now() + MEANING_SET_CHANGE_DELAY_MS;
+}
+
+function maybeAdvanceMeaningSet(timestamp) {
+  if (
+    !isMeaningMode() ||
+    drops.length ||
+    splashes.length ||
+    reveals.length ||
+    translations.length ||
+    !state.meaningSetChangeAt
+  ) {
+    return;
+  }
+  if (timestamp < state.meaningSetChangeAt) {
+    return;
+  }
+  setMeaningSet(pickMeaningSet(state.meaningSet?.id));
+}
+
+function escapeSvgText(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function createMeaningImageSrc(entry) {
+  const glyph = escapeSvgText(entry.glyph);
+  const meaning = escapeSvgText(entry.meaning);
+  const sv = escapeSvgText(entry.sv);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+      <rect width="192" height="192" rx="18" fill="#f7f1e6"/>
+      <rect x="10" y="10" width="172" height="172" rx="14" fill="#fffaf0" stroke="#0d6a7a" stroke-width="4"/>
+      <circle cx="96" cy="72" r="46" fill="#91e5f6" opacity="0.45"/>
+      <text x="96" y="83" text-anchor="middle" font-family="Fira Sans, Arial, sans-serif" font-size="34" font-weight="800" fill="#073b4a">${glyph}</text>
+      <text x="96" y="132" text-anchor="middle" font-family="Fira Sans, Arial, sans-serif" font-size="19" font-weight="800" fill="#01202a">${meaning}</text>
+      <text x="96" y="157" text-anchor="middle" font-family="Fira Sans, Arial, sans-serif" font-size="14" font-weight="700" fill="#0d6a7a">${sv}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function getMeaningImage(entry) {
+  const key = `${entry.familyId}-${entry.tones}`;
+  if (!meaningImageCache.has(key)) {
+    const img = new Image();
+    img.src = createMeaningImageSrc(entry);
+    meaningImageCache.set(key, img);
+  }
+  return meaningImageCache.get(key);
+}
+
+function renderMeaningPad() {
+  const set = ensureMeaningSet({ render: false });
+  const entriesOrder =
+    state.meaningPadOrder && state.meaningPadOrder.length ? state.meaningPadOrder : set.entries;
+  entriesOrder.forEach((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "image-pad__btn";
+    button.dataset.tones = entry.tones;
+    button.setAttribute("aria-label", `${entry.meaning}: ${entry.sv}`);
+
+    const img = document.createElement("img");
+    const meaningImage = getMeaningImage(entry);
+    img.src = meaningImage.src;
+    img.alt = entry.sv;
+    button.appendChild(img);
+
+    button.addEventListener("click", () => {
+      if (!state.useImagePad) {
+        return;
+      }
+      if (state.running) {
+        handleImageEntry(entry.tones);
+        return;
+      }
+      playToneSample(entry.tones);
+    });
+
+    imagePad.appendChild(button);
+  });
 }
 
 function renderImagePad() {
@@ -979,6 +1232,11 @@ function renderImagePad() {
     return;
   }
   imagePad.replaceChildren();
+  if (isMeaningMode()) {
+    renderMeaningPad();
+    imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
+    return;
+  }
   const tonesOrder = state.imagePadOrder && state.imagePadOrder.length ? state.imagePadOrder : IMAGE_PAD_TONES;
   tonesOrder.forEach((tones) => {
     const button = document.createElement("button");
@@ -1011,6 +1269,17 @@ function renderImagePad() {
 
 function playToneSample(tones) {
   if (state.toneMode === "vis") {
+    return;
+  }
+  if (isMeaningMode()) {
+    const set = ensureMeaningSet();
+    const entry = set.entries.find((candidate) => candidate.tones === tones);
+    if (!entry) {
+      return;
+    }
+    lastSpoken = entry;
+    speak(entry.text, { force: true });
+    setStatus(`Replaying: ${entry.text}`);
     return;
   }
   const entries = WORDS_BY_TONE[tones];
@@ -1050,15 +1319,18 @@ function setToneMode(mode, { persist = true } = {}) {
   progress.toneMode = normalized;
   state.toneMode = normalized;
   state.useNumberLabels = normalized !== "symbols";
-  state.useImagePad = normalized === "images" || normalized === "shuffle";
+  state.useImagePad = isImagePadMode(normalized);
   state.useVisDrops = normalized === "vis";
   gameRoot?.classList.toggle("game--image-mode", state.useImagePad);
   gameRoot?.classList.toggle("game--vis-mode", state.useVisDrops);
+  gameRoot?.classList.toggle("game--meaning-mode", normalized === "meaning");
   if (state.useImagePad) {
     toneInput.value = "";
     clearInputTimer();
     if (normalized === "shuffle") {
       shuffleImagePadOrder();
+    } else if (normalized === "meaning") {
+      setMeaningSet(pickMeaningSet(state.meaningSet?.id));
     } else {
       state.imagePadOrder = IMAGE_PAD_TONES.slice();
       renderImagePad();
@@ -1527,7 +1799,7 @@ function formatToneString(tones) {
 }
 
 function shouldUseImageReveals() {
-  return state.toneMode === "images" || state.toneMode === "shuffle";
+  return isImagePadMode() && state.toneMode !== "vis";
 }
 
 function getToneModeLabel() {
@@ -1536,6 +1808,9 @@ function getToneModeLabel() {
   }
   if (state.toneMode === "shuffle") {
     return "images";
+  }
+  if (state.toneMode === "meaning") {
+    return "meanings";
   }
   if (state.toneMode === "vis") {
     return "numbers";
@@ -1551,7 +1826,7 @@ function formatLevelLabel(label) {
 }
 
 function updateToneLabels() {
-  const usesImages = state.toneMode === "images" || state.toneMode === "shuffle";
+  const usesImages = isImagePadMode();
   keypadButtons.forEach((button) => {
     const digit = button.dataset.digit;
     const label = formatToneDigit(digit);
@@ -1596,6 +1871,7 @@ function updateInputMode() {
     gameRoot.classList.toggle("game--keypad", state.useKeypad);
     gameRoot.classList.toggle("game--image-mode", state.useImagePad);
     gameRoot.classList.toggle("game--vis-mode", state.useVisDrops);
+    gameRoot.classList.toggle("game--meaning-mode", isMeaningMode());
   }
   updateLevelCloseLabel();
   if (state.useKeypad) {
@@ -1741,15 +2017,23 @@ function difficulty() {
   };
 }
 
+function getActiveWordPool() {
+  if (isMeaningMode()) {
+    return ensureMeaningSet().entries;
+  }
+  return state.wordPool;
+}
+
 function randomEntry() {
-  if (!state.wordPool.length) {
+  const pool = getActiveWordPool();
+  if (!pool.length) {
     return null;
   }
-  return state.wordPool[Math.floor(Math.random() * state.wordPool.length)];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function spawnDrop() {
-  if (drops.length > 18 || !state.wordPool.length) {
+  if (drops.length > 18 || !getActiveWordPool().length) {
     return;
   }
   const entry = randomEntry();
@@ -1768,12 +2052,13 @@ function spawnDrop() {
     text: entry.text,
     tones: entry.tones,
     sv: entry.sv,
+    familyId: entry.familyId ?? null,
     x,
     y,
     radius,
     size,
     renderMode: isVis ? "vis" : "raindrop",
-    image: isVis ? getToneImage(entry.tones) : null,
+    image: isVis ? getToneImage(entry.tones) : isMeaningMode() ? getMeaningImage(entry) : null,
     speed: speed + Math.random() * 20,
   };
   drops.push(drop);
@@ -1787,7 +2072,7 @@ function startGame() {
   if (state.running) {
     return;
   }
-  if (!state.wordPool.length) {
+  if (!getActiveWordPool().length) {
     setStatus("No words loaded for this level.");
     return;
   }
@@ -1798,6 +2083,10 @@ function startGame() {
     drops.length === 0
   ) {
     shuffleImagePadOrder();
+  }
+  if (isMeaningMode()) {
+    ensureMeaningSet();
+    state.meaningSetChangeAt = 0;
   }
   hideBird();
   hudEl?.removeAttribute("hidden");
@@ -1814,7 +2103,9 @@ function startGame() {
   setStatus(
     state.pauseUsed
       ? "Resumed. Paused runs do not count for highscores or unlocks."
-      : "Drops incoming... type the tone numbers."
+      : isMeaningMode()
+        ? "Drops incoming... tap the matching meaning."
+        : "Drops incoming... type the tone numbers."
   );
   startBtn.textContent = "Pause";
   focusInput();
@@ -1881,6 +2172,8 @@ function maybeUnlockNextLevel() {
         ? progress.unlockedVis
         : mode === "shuffle"
           ? progress.unlockedShuffle
+          : mode === "meaning"
+            ? progress.unlockedMeaning
           : progress.unlocked;
   if (unlockedSet.has("4x")) {
     unlockedAny = unlockLevel("x1", mode) || unlockedAny;
@@ -1909,6 +2202,8 @@ function finalizeRun() {
         ? progress.highscoresVis
         : state.toneMode === "shuffle"
           ? progress.highscoresShuffle
+          : state.toneMode === "meaning"
+            ? progress.highscoresMeaning
         : progress.highscores;
   const previousHigh = getHighScore(state.levelId);
   const previousMedals = getMedalTierIds(previousHigh);
@@ -2038,7 +2333,9 @@ function startFinalReveal() {
 
   const remainingDrops = drops.splice(0, drops.length);
   remainingDrops.forEach((drop) => {
-    const revealImage = shouldUseImageReveals() ? getToneImage(drop.tones) : null;
+    const revealImage = shouldUseImageReveals()
+      ? drop.image || getToneImage(drop.tones)
+      : null;
     addReveal(
       drop.x,
       Math.min(state.safeBottom - 12, drop.y),
@@ -2078,6 +2375,7 @@ function clearDrop(drop) {
   updateHud();
   addSplash(drop.x, drop.y, drop.radius + 6);
   addTranslation(drop.x, drop.y, drop.sv, drop.radius);
+  queueMeaningSetChange();
 }
 
 function missDrop(drop) {
@@ -2089,7 +2387,9 @@ function missDrop(drop) {
   state.lives -= 1;
   updateHud();
   const revealDuration = state.lives <= 0 ? 0.5 : 0.9;
-  const revealImage = shouldUseImageReveals() ? getToneImage(drop.tones) : null;
+  const revealImage = shouldUseImageReveals()
+    ? drop.image || getToneImage(drop.tones)
+    : null;
   addReveal(
     drop.x,
     Math.min(state.safeBottom - 12, drop.y),
@@ -2101,6 +2401,7 @@ function missDrop(drop) {
   if (state.lives <= 0) {
     startFinalReveal();
   } else {
+    queueMeaningSetChange();
     setStatus(`Missed: ${formatToneString(drop.tones)}`);
   }
 }
@@ -2322,8 +2623,12 @@ function tick(timestamp) {
   const delta = Math.min((timestamp - state.lastFrame) / 1000, MAX_FRAME_DELTA);
   state.lastFrame = timestamp;
 
+  maybeAdvanceMeaningSet(timestamp);
+
   const { spawn } = difficulty();
-  if (timestamp - state.lastSpawn > spawn) {
+  const waitingForMeaningSetChange =
+    isMeaningMode() && !drops.length && Boolean(state.meaningSetChangeAt);
+  if (!waitingForMeaningSetChange && timestamp - state.lastSpawn > spawn) {
     spawnDrop();
     state.lastSpawn = timestamp;
   }
@@ -2487,9 +2792,14 @@ const initialLevel =
   progress.lastLevel && isLevelUnlocked(progress.lastLevel, "numbers")
     ? progress.lastLevel
     : LEVELS[0].id;
-setLevel(state.toneMode === "images" || state.toneMode === "vis" ? LEVELS[0].id : initialLevel, {
+setLevel(
+  state.toneMode === "images" || state.toneMode === "vis" || state.toneMode === "meaning"
+    ? LEVELS[0].id
+    : initialLevel,
+  {
   announce: false,
-});
+  }
+);
 resetGame();
 updateHud();
 updateHighScore();

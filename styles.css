@@ -384,6 +384,10 @@ img.medal {
   display: grid;
 }
 
+.game--meaning-mode .image-pad {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 
 .keypad__key {
   min-height: 56px;
@@ -455,6 +459,14 @@ img.medal {
 }
 
 .game--running.game--keypad .input-panel__text {
+  display: none;
+}
+
+.game--running.game--image-mode .hud {
+  display: none;
+}
+
+.game--running.game--image-mode .input-panel__text {
   display: none;
 }
 
@@ -847,6 +859,25 @@ input#toneInput:focus {
 @media (orientation: portrait) {
   .game {
     gap: 1.1rem;
+  }
+
+  .game--image-mode {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .game--image-mode .hud {
+    gap: 0.65rem 1rem;
+    padding: 0.75rem;
+  }
+
+  .game--image-mode .arena {
+    flex: 0 1 auto;
+    height: clamp(220px, 44vh, 430px);
+  }
+
+  .game--image-mode .input-panel__text {
+    display: none;
   }
 
   .input-panel {
