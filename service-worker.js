@@ -1,4 +1,4 @@
-const CACHE_NAME = "tone-raindrops-v51";
+const CACHE_NAME = "tone-raindrops-v52";
 const ASSETS = [
   "./",
   "./index.html",
@@ -13,6 +13,22 @@ const ASSETS = [
   "./medals/silver.png",
   "./medals/gold.png",
   "./medals/platinum.png",
+  "./meaning_images/aunt.svg",
+  "./meaning_images/chair.svg",
+  "./meaning_images/clothes.svg",
+  "./meaning_images/dad.svg",
+  "./meaning_images/eight.svg",
+  "./meaning_images/fortune.svg",
+  "./meaning_images/hemp.svg",
+  "./meaning_images/history.svg",
+  "./meaning_images/hold.svg",
+  "./meaning_images/horse.svg",
+  "./meaning_images/is.svg",
+  "./meaning_images/mother.svg",
+  "./meaning_images/pull.svg",
+  "./meaning_images/scold.svg",
+  "./meaning_images/teacher.svg",
+  "./meaning_images/ten.svg",
   "./tone_grid_images/1.png",
   "./tone_grid_images/11.png",
   "./tone_grid_images/12.png",

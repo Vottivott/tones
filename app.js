@@ -319,40 +319,40 @@ const MEANING_TONE_SETS = [
     id: "ma",
     label: "ma",
     entries: [
-      { text: "妈", tones: "1", sv: "mamma", meaning: "mother", glyph: "MOM" },
-      { text: "麻", tones: "2", sv: "hampa; bedövad", meaning: "hemp", glyph: "LEAF" },
-      { text: "马", tones: "3", sv: "häst", meaning: "horse", glyph: "RUN" },
-      { text: "骂", tones: "4", sv: "skälla ut", meaning: "scold", glyph: "!" },
+      { text: "妈", tones: "1", sv: "mamma", meaning: "mother", image: "meaning_images/mother.svg" },
+      { text: "麻", tones: "2", sv: "hampa; bedövad", meaning: "hemp", image: "meaning_images/hemp.svg" },
+      { text: "马", tones: "3", sv: "häst", meaning: "horse", image: "meaning_images/horse.svg" },
+      { text: "骂", tones: "4", sv: "skälla ut", meaning: "scold", image: "meaning_images/scold.svg" },
     ],
   },
   {
     id: "yi",
     label: "yi",
     entries: [
-      { text: "衣", tones: "1", sv: "kläder", meaning: "clothes", glyph: "TEE" },
-      { text: "姨", tones: "2", sv: "moster; faster", meaning: "aunt", glyph: "AUNT" },
-      { text: "椅", tones: "3", sv: "stol", meaning: "chair", glyph: "SEAT" },
-      { text: "亿", tones: "4", sv: "hundra miljoner", meaning: "100 million", glyph: "100M" },
+      { text: "衣", tones: "1", sv: "kläder", meaning: "clothes", image: "meaning_images/clothes.svg" },
+      { text: "姨", tones: "2", sv: "moster; faster", meaning: "aunt", image: "meaning_images/aunt.svg" },
+      { text: "椅", tones: "3", sv: "stol", meaning: "chair", image: "meaning_images/chair.svg" },
+      { text: "亿", tones: "4", sv: "hundra miljoner", meaning: "100 million", image: "meaning_images/fortune.svg" },
     ],
   },
   {
     id: "shi",
     label: "shi",
     entries: [
-      { text: "师", tones: "1", sv: "lärare; mästare", meaning: "teacher", glyph: "ABC" },
-      { text: "十", tones: "2", sv: "tio", meaning: "ten", glyph: "10" },
-      { text: "史", tones: "3", sv: "historia", meaning: "history", glyph: "PAST" },
-      { text: "是", tones: "4", sv: "vara; är", meaning: "is", glyph: "YES" },
+      { text: "师", tones: "1", sv: "lärare; mästare", meaning: "teacher", image: "meaning_images/teacher.svg" },
+      { text: "十", tones: "2", sv: "tio", meaning: "ten", image: "meaning_images/ten.svg" },
+      { text: "史", tones: "3", sv: "historia", meaning: "history", image: "meaning_images/history.svg" },
+      { text: "是", tones: "4", sv: "vara; är", meaning: "is", image: "meaning_images/is.svg" },
     ],
   },
   {
     id: "ba",
     label: "ba",
     entries: [
-      { text: "八", tones: "1", sv: "åtta", meaning: "eight", glyph: "8" },
-      { text: "拔", tones: "2", sv: "dra upp", meaning: "pull", glyph: "PULL" },
-      { text: "把", tones: "3", sv: "hålla; greppa", meaning: "hold", glyph: "HOLD" },
-      { text: "爸", tones: "4", sv: "pappa", meaning: "dad", glyph: "DAD" },
+      { text: "八", tones: "1", sv: "åtta", meaning: "eight", image: "meaning_images/eight.svg" },
+      { text: "拔", tones: "2", sv: "dra upp", meaning: "pull", image: "meaning_images/pull.svg" },
+      { text: "把", tones: "3", sv: "hålla; greppa", meaning: "hold", image: "meaning_images/hold.svg" },
+      { text: "爸", tones: "4", sv: "pappa", meaning: "dad", image: "meaning_images/dad.svg" },
     ],
   },
 ];
@@ -1161,35 +1161,11 @@ function maybeAdvanceMeaningSet(timestamp) {
   setMeaningSet(pickMeaningSet(state.meaningSet?.id));
 }
 
-function escapeSvgText(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function createMeaningImageSrc(entry) {
-  const glyph = escapeSvgText(entry.glyph);
-  const meaning = escapeSvgText(entry.meaning);
-  const sv = escapeSvgText(entry.sv);
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-      <rect width="192" height="192" rx="18" fill="#f7f1e6"/>
-      <rect x="10" y="10" width="172" height="172" rx="14" fill="#fffaf0" stroke="#0d6a7a" stroke-width="4"/>
-      <circle cx="96" cy="72" r="46" fill="#91e5f6" opacity="0.45"/>
-      <text x="96" y="83" text-anchor="middle" font-family="Fira Sans, Arial, sans-serif" font-size="34" font-weight="800" fill="#073b4a">${glyph}</text>
-      <text x="96" y="132" text-anchor="middle" font-family="Fira Sans, Arial, sans-serif" font-size="19" font-weight="800" fill="#01202a">${meaning}</text>
-      <text x="96" y="157" text-anchor="middle" font-family="Fira Sans, Arial, sans-serif" font-size="14" font-weight="700" fill="#0d6a7a">${sv}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
 function getMeaningImage(entry) {
   const key = `${entry.familyId}-${entry.tones}`;
   if (!meaningImageCache.has(key)) {
     const img = new Image();
-    img.src = createMeaningImageSrc(entry);
+    img.src = entry.image;
     meaningImageCache.set(key, img);
   }
   return meaningImageCache.get(key);
