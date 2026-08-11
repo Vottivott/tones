@@ -424,6 +424,14 @@ img.medal {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.game--voice-mode .input-panel__controls {
+  display: none;
+}
+
+.game--running.game--voice-mode .input-panel {
+  display: none;
+}
+
 
 .keypad__key {
   min-height: 56px;
@@ -945,6 +953,11 @@ input#toneInput:focus {
   .game--image-mode .arena {
     flex: 0 1 auto;
     height: clamp(220px, 44vh, 430px);
+  }
+
+  .game--running.game--voice-mode .arena {
+    flex: 1;
+    height: auto;
   }
 
   .game--image-mode .input-panel__text {

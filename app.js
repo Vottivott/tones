@@ -89,6 +89,9 @@ const TONE_SYMBOLS = {
 
 const VIS_DROP_RADIUS = 12;
 const VIS_DROP_PADDING = 4;
+const VOICE_DROP_RADIUS = 12;
+const VOICE_DROP_PADDING = 5;
+const VOICE_DROP_LABEL_HEIGHT = 32;
 
 const MEDAL_TIERS = [
   { id: "bronze", label: "Bronze", score: 20, image: "medals/bronze.png" },
@@ -1714,6 +1717,10 @@ function renderImagePad() {
     return;
   }
   imagePad.replaceChildren();
+  if (isVoiceMode()) {
+    imagePadButtons = [];
+    return;
+  }
   if (isMeaningFamilyMode()) {
     renderMeaningPad();
     imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
@@ -3063,15 +3070,16 @@ function updateInputEnabled() {
 }
 
 function updateInputVisibility() {
-  const showImages = state.useImagePad;
+  const showImages = state.useImagePad && !isVoiceMode();
+  const hideTextInput = showImages || isVoiceMode();
   if (toneInput) {
-    toneInput.hidden = showImages;
+    toneInput.hidden = hideTextInput;
   }
   if (backspaceBtn) {
-    backspaceBtn.hidden = showImages;
+    backspaceBtn.hidden = hideTextInput;
   }
   if (keypad) {
-    keypad.hidden = showImages || !state.useKeypad;
+    keypad.hidden = hideTextInput || !state.useKeypad;
   }
   if (imagePad) {
     imagePad.hidden = !showImages;
@@ -3179,8 +3187,10 @@ function spawnDrop() {
     return;
   }
   const isVis = state.toneMode === "vis";
-  const size = isVis ? state.visTileSize || 72 : null;
-  const radius = isVis ? size / 2 : 24 + Math.random() * 14;
+  const isVoice = isVoiceMode();
+  const voiceSize = isVoice ? computeVoiceDropSize() : null;
+  const size = isVis ? state.visTileSize || 72 : isVoice ? voiceSize.width : null;
+  const radius = isVis ? size / 2 : isVoice ? voiceSize.height / 2 : 24 + Math.random() * 14;
   const margin = radius + 12;
   const x = margin + Math.random() * Math.max(0, state.width - margin * 2);
   const y = -radius - Math.random() * 40;
@@ -3200,7 +3210,9 @@ function spawnDrop() {
     y,
     radius,
     size,
-    renderMode: isVis ? "vis" : "raindrop",
+    cardWidth: voiceSize?.width ?? null,
+    cardHeight: voiceSize?.height ?? null,
+    renderMode: isVis ? "vis" : isVoice ? "voice-meaning" : "raindrop",
     image: isVis ? getToneImage(entry.tones) : isMeaningFamilyMode() ? getMeaningImage(entry) : null,
     speed: speed + Math.random() * 20,
   };
@@ -3591,6 +3603,10 @@ function drawDrop(drop) {
     drawVisDrop(drop);
     return;
   }
+  if (drop.renderMode === "voice-meaning") {
+    drawVoiceMeaningDrop(drop);
+    return;
+  }
   const { x, y, radius } = drop;
   const gradient = ctx.createLinearGradient(x, y - radius, x, y + radius);
   gradient.addColorStop(0, "rgba(145, 229, 246, 0.95)");
@@ -3615,6 +3631,109 @@ function drawDrop(drop) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(drop.text, x, y + radius * 0.1);
+  ctx.restore();
+}
+
+function computeVoiceDropSize() {
+  if (state.width < 380) {
+    return { width: 78, height: 104 };
+  }
+  if (state.width < 520) {
+    return { width: 86, height: 112 };
+  }
+  return { width: 96, height: 124 };
+}
+
+function drawImageCover(image, x, y, width, height) {
+  const sourceRatio = image.naturalWidth / image.naturalHeight;
+  const targetRatio = width / height;
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = image.naturalWidth;
+  let sourceHeight = image.naturalHeight;
+
+  if (sourceRatio > targetRatio) {
+    sourceWidth = sourceHeight * targetRatio;
+    sourceX = (image.naturalWidth - sourceWidth) / 2;
+  } else {
+    sourceHeight = sourceWidth / targetRatio;
+    sourceY = (image.naturalHeight - sourceHeight) / 2;
+  }
+
+  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+}
+
+function fitCanvasText(text, maxWidth, fontSize, weight = 700) {
+  ctx.save();
+  let next = text || "";
+  ctx.font = `${weight} ${fontSize}px "Fira Sans", "Noto Sans SC", sans-serif`;
+  if (ctx.measureText(next).width <= maxWidth) {
+    ctx.restore();
+    return next;
+  }
+  while (next.length > 1 && ctx.measureText(`${next}...`).width > maxWidth) {
+    next = next.slice(0, -1);
+  }
+  ctx.restore();
+  return `${next}...`;
+}
+
+function fitCanvasTextLines(text, maxWidth, fontSize, maxLines = 2) {
+  ctx.save();
+  ctx.font = `700 ${fontSize}px "Fira Sans", "Noto Sans SC", sans-serif`;
+  const lines = wrapLines(text || "", fontSize, maxWidth);
+  ctx.restore();
+  if (lines.length <= maxLines) {
+    return lines;
+  }
+  const kept = lines.slice(0, maxLines);
+  kept[maxLines - 1] = fitCanvasText(kept[maxLines - 1], maxWidth, fontSize, 700);
+  return kept;
+}
+
+function drawVoiceMeaningDrop(drop) {
+  const width = drop.cardWidth || computeVoiceDropSize().width;
+  const height = drop.cardHeight || computeVoiceDropSize().height;
+  const left = drop.x - width / 2;
+  const top = drop.y - height / 2;
+  const image = drop.image;
+  const imageLeft = left + VOICE_DROP_PADDING;
+  const imageTop = top + VOICE_DROP_PADDING;
+  const imageWidth = width - VOICE_DROP_PADDING * 2;
+  const imageHeight = height - VOICE_DROP_LABEL_HEIGHT - VOICE_DROP_PADDING * 2;
+  const labelCenterY = top + height - VOICE_DROP_LABEL_HEIGHT / 2 - 1;
+  const labelMaxWidth = width - VOICE_DROP_PADDING * 2;
+  const labelLines = fitCanvasTextLines(drop.sv || drop.meaning || "", labelMaxWidth, 12, 2);
+
+  ctx.save();
+  roundedRectPath(ctx, left, top, width, height, VOICE_DROP_RADIUS);
+  ctx.fillStyle = "rgba(8, 54, 69, 0.82)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(145, 229, 246, 0.45)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (image && image.complete && image.naturalWidth) {
+    ctx.save();
+    roundedRectPath(ctx, imageLeft, imageTop, imageWidth, imageHeight, VOICE_DROP_RADIUS - 3);
+    ctx.clip();
+    drawImageCover(image, imageLeft, imageTop, imageWidth, imageHeight);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "rgba(145, 229, 246, 0.18)";
+    roundedRectPath(ctx, imageLeft, imageTop, imageWidth, imageHeight, VOICE_DROP_RADIUS - 3);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(232, 247, 251, 0.96)";
+  ctx.font = `700 12px "Fira Sans", "Noto Sans SC", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const lineHeight = 12.5;
+  const firstLineY = labelCenterY - ((labelLines.length - 1) * lineHeight) / 2;
+  labelLines.forEach((line, index) => {
+    ctx.fillText(fitCanvasText(line, labelMaxWidth, 12, 700), drop.x, firstLineY + index * lineHeight);
+  });
   ctx.restore();
 }
 
