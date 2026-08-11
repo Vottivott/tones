@@ -446,5 +446,117 @@
     "license": "CC0",
     "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
     "artist": "Thomas Martinsen faceline"
+  },
+  "center": {
+    "file": "File:Harrows Bristle Board Bullseye.JPG",
+    "source": "https://commons.wikimedia.org/wiki/File:Harrows_Bristle_Board_Bullseye.JPG",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Christian Gidlöf"
+  },
+  "insect": {
+    "file": "File:Close-up view of a bioluminescent beetle Elateroidea.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Close-up_view_of_a_bioluminescent_beetle_Elateroidea.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "Basile Morin"
+  },
+  "seed": {
+    "file": "File:Pumpkin Seeds macro 1.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Pumpkin_Seeds_macro_1.jpg",
+    "license": "CC BY 3.0",
+    "license_url": "https://creativecommons.org/licenses/by/3.0",
+    "artist": "Daniel Schwen"
+  },
+  "heavy": {
+    "file": "File:A heavy weight - geograph.org.uk - 1262856.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:A_heavy_weight_-_geograph.org.uk_-_1262856.jpg",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "artist": "Stephen Craven"
+  },
+  "life": {
+    "file": "File:Newborn baby, Newborn infant, Moscow, Russia.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Newborn_baby,_Newborn_infant,_Moscow,_Russia.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "Vyacheslav Argenberg"
+  },
+  "rope": {
+    "file": "File:Coiled rope 03235.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Coiled_rope_03235.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "artist": "Nevit Dilmen"
+  },
+  "province": {
+    "file": "File:China blank province map.svg",
+    "source": "https://commons.wikimedia.org/wiki/File:China_blank_province_map.svg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Newfraferz87"
+  },
+  "victory": {
+    "file": "File:2025 Victory Day celebration in Baku.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:2025_Victory_Day_celebration_in_Baku.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Adem"
+  },
+  "square": {
+    "file": "File:Square (shape) in square.svg",
+    "source": "https://commons.wikimedia.org/wiki/File:Square_(shape)_in_square.svg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "me"
+  },
+  "house": {
+    "file": "File:Old house typical of the island of Margarita.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Old_house_typical_of_the_island_of_Margarita.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Wilfredor"
+  },
+  "visit": {
+    "file": "File:Friends Visiting Lake Ngozi.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Friends_Visiting_Lake_Ngozi.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Fredy2203"
+  },
+  "release": {
+    "file": "File:Releasing a bird (23190969763).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Releasing_a_bird_(23190969763).jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "USFWSAlaska"
+  },
+  "green": {
+    "file": "File:Lisc lipy.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Lisc_lipy.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "artist": "Krzysztof P. Jasiutowicz"
+  },
+  "emotion": {
+    "file": "File:Empathy facial expression 2.png",
+    "source": "https://commons.wikimedia.org/wiki/File:Empathy_facial_expression_2.png",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Google Gemini"
+  },
+  "invite": {
+    "file": "File:FRIDGE nightclub, Brixton, 1985 invitation card. (pink).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:FRIDGE_nightclub,_Brixton,_1985_invitation_card._(pink).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Stephanny203"
+  },
+  "celebrate": {
+    "file": "File:Fireworks in Sevierville, Tennessee on 4th of July - 15.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Fireworks_in_Sevierville,_Tennessee_on_4th_of_July_-_15.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Roc0ast3r"
   }
 }

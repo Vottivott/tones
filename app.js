@@ -515,6 +515,46 @@ const MEANING_TONE_SETS = [
       { text: "记", tones: "4", sv: "minnas; anteckna", meaning: "remember", image: "meaning_images/remember.jpg" },
     ],
   },
+  {
+    id: "zhong",
+    label: "zhong",
+    entries: [
+      { text: "中", tones: "1", sv: "mitten; centrum", meaning: "center", image: "meaning_images/center.jpg" },
+      { text: "虫", tones: "2", sv: "insekt; mask", meaning: "insect", image: "meaning_images/insect.jpg" },
+      { text: "种", tones: "3", sv: "frö; sort", meaning: "seed", image: "meaning_images/seed.jpg" },
+      { text: "重", tones: "4", sv: "tung", meaning: "heavy", image: "meaning_images/heavy.jpg" },
+    ],
+  },
+  {
+    id: "sheng",
+    label: "sheng",
+    entries: [
+      { text: "生", tones: "1", sv: "liv; födas", meaning: "life", image: "meaning_images/life.jpg" },
+      { text: "绳", tones: "2", sv: "rep", meaning: "rope", image: "meaning_images/rope.jpg" },
+      { text: "省", tones: "3", sv: "provins; spara", meaning: "province", image: "meaning_images/province.jpg" },
+      { text: "胜", tones: "4", sv: "seger; vinna", meaning: "victory", image: "meaning_images/victory.jpg" },
+    ],
+  },
+  {
+    id: "fang",
+    label: "fang",
+    entries: [
+      { text: "方", tones: "1", sv: "fyrkant; riktning", meaning: "square", image: "meaning_images/square.jpg" },
+      { text: "房", tones: "2", sv: "hus; rum", meaning: "house", image: "meaning_images/house.jpg" },
+      { text: "访", tones: "3", sv: "besöka", meaning: "visit", image: "meaning_images/visit.jpg" },
+      { text: "放", tones: "4", sv: "släppa; lägga", meaning: "release", image: "meaning_images/release.jpg" },
+    ],
+  },
+  {
+    id: "qing",
+    label: "qing",
+    entries: [
+      { text: "青", tones: "1", sv: "grön; blågrön", meaning: "green", image: "meaning_images/green.jpg" },
+      { text: "情", tones: "2", sv: "känsla", meaning: "emotion", image: "meaning_images/emotion.jpg" },
+      { text: "请", tones: "3", sv: "bjuda in; snälla", meaning: "invite", image: "meaning_images/invite.jpg" },
+      { text: "庆", tones: "4", sv: "fira", meaning: "celebrate", image: "meaning_images/celebrate.jpg" },
+    ],
+  },
 ];
 
 MEANING_TONE_SETS.forEach((set) => {
