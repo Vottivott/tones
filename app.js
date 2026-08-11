@@ -2030,11 +2030,15 @@ function runVoicePrediction() {
 function handleVoiceEntry(prediction) {
   const tones = prediction.tone;
   const entry = ensureMeaningSet({ render: false }).entries.find((candidate) => candidate.tones === tones);
-  const match = findMatch(tones);
+  const matches = findMatches(tones);
   const label = entry ? `${entry.familyLabel}${tones}` : tones;
-  if (match) {
-    clearDrop(match, { selectedTones: tones, inputMethod: "voice", voicePrediction: prediction });
-    setStatus(`Heard ${label}.`);
+  if (matches.length) {
+    matches
+      .sort((a, b) => b.y - a.y)
+      .forEach((match) =>
+        clearDrop(match, { selectedTones: tones, inputMethod: "voice", voicePrediction: prediction })
+      );
+    setStatus(matches.length === 1 ? `Heard ${label}.` : `Heard ${label}. Cleared ${matches.length}.`);
   } else {
     recordIncorrectAnswer(tones, "voice", { voicePrediction: prediction });
     setStatus(`Heard ${label}, but no matching drop.`);
@@ -3598,11 +3602,15 @@ function missDrop(drop) {
 }
 
 function findMatch(tones) {
-  const matches = drops.filter((drop) => drop.tones === tones);
+  const matches = findMatches(tones);
   if (!matches.length) {
     return null;
   }
   return matches.reduce((closest, drop) => (drop.y > closest.y ? drop : closest));
+}
+
+function findMatches(tones) {
+  return drops.filter((drop) => drop.tones === tones);
 }
 
 function findReviewTarget() {
