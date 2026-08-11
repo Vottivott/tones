@@ -48,6 +48,9 @@
         <button id="predictBtn" class="button button--accent" type="button">Test predict</button>
         <button id="replayBtn" class="button" type="button">Replay</button>
         <button id="skipBtn" class="button" type="button">Skip</button>
+        <button id="deleteLatestBtn" class="button button--danger" type="button">
+          Delete latest
+        </button>
       </section>
 
       <section class="prediction-panel" aria-live="polite">
@@ -85,8 +88,9 @@
       <section class="setup-note">
         <h2>Upload setup</h2>
         <p>
-          This page uploads raw audio and pitch features to Supabase. If uploads fail with a policy
-          or bucket error, run <code>supabase-voice-setup.sql</code> in the Supabase SQL Editor once.
+          This page uploads raw audio and pitch features to Supabase. If uploads or deletes fail
+          with a policy or bucket error, run <code>supabase-voice-setup.sql</code> in the Supabase
+          SQL Editor once.
         </p>
       </section>
     </main>

@@ -111,6 +111,7 @@ const recordOnceBtn = document.getElementById("recordOnceBtn");
 const predictBtn = document.getElementById("predictBtn");
 const replayBtn = document.getElementById("replayBtn");
 const skipBtn = document.getElementById("skipBtn");
+const deleteLatestBtn = document.getElementById("deleteLatestBtn");
 const modelStatus = document.getElementById("modelStatus");
 const predictionResult = document.getElementById("predictionResult");
 const predictionScores = document.getElementById("predictionScores");
@@ -148,6 +149,7 @@ const state = {
   model: null,
   pendingPrediction: null,
   stats: loadStats(initialToneSet.id),
+  uploadHistory: loadUploadHistory(),
   sessionId: getSessionId(),
 };
 
@@ -155,6 +157,7 @@ renderToneSetOptions();
 renderTarget(state.currentTarget);
 renderStats();
 renderToneLabels();
+updateDeleteLatestButton();
 drawPitch([]);
 loadVoices();
 refreshModel();
@@ -192,6 +195,12 @@ skipBtn.addEventListener("click", () => {
     state.currentTarget = nextTarget();
     renderTarget(state.currentTarget);
     setStatus(`Skipped. Next: ${state.currentTarget.pinyin}.`);
+  }
+});
+
+deleteLatestBtn.addEventListener("click", () => {
+  if (!state.busy && !state.running) {
+    deleteLatestRecording();
   }
 });
 
@@ -279,6 +288,42 @@ function saveStats() {
   localStorage.setItem("toneVoiceCollector.stats.v2", JSON.stringify(parsed));
 }
 
+function loadUploadHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("toneVoiceCollector.uploadHistory.v1") || "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry) => entry?.storagePath) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUploadHistory() {
+  localStorage.setItem(
+    "toneVoiceCollector.uploadHistory.v1",
+    JSON.stringify(state.uploadHistory.slice(-50))
+  );
+}
+
+function latestUpload() {
+  return state.uploadHistory[state.uploadHistory.length - 1] || null;
+}
+
+function rememberUpload(entry) {
+  state.uploadHistory.push(entry);
+  if (state.uploadHistory.length > 50) {
+    state.uploadHistory.splice(0, state.uploadHistory.length - 50);
+  }
+  saveUploadHistory();
+  updateDeleteLatestButton();
+}
+
+function forgetLatestUpload() {
+  const removed = state.uploadHistory.pop() || null;
+  saveUploadHistory();
+  updateDeleteLatestButton();
+  return removed;
+}
+
 function renderToneSetOptions() {
   syllableSelect.innerHTML = "";
   TONE_SETS.forEach((set, index) => {
@@ -294,6 +339,14 @@ function renderStats() {
   Object.entries(countEls).forEach(([tone, el]) => {
     el.textContent = String(state.stats[tone] || 0);
   });
+}
+
+function updateDeleteLatestButton() {
+  const latest = latestUpload();
+  deleteLatestBtn.disabled = state.busy || state.running || !latest;
+  deleteLatestBtn.title = latest
+    ? `Delete ${latest.pinyin} from ${new Date(latest.createdAt).toLocaleString()}`
+    : "No local upload history yet.";
 }
 
 function renderToneLabels() {
@@ -348,6 +401,7 @@ function setToneSet(toneSetId) {
   renderTarget(state.currentTarget);
   renderStats();
   renderToneLabels();
+  updateDeleteLatestButton();
   drawPitch([]);
   setStatus(`Ready for ${nextSet.label}.`);
   refreshModel();
@@ -375,6 +429,7 @@ async function startAuto() {
   recordOnceBtn.disabled = true;
   predictBtn.disabled = true;
   skipBtn.disabled = true;
+  updateDeleteLatestButton();
   try {
     await ensureMic();
     while (state.running) {
@@ -388,6 +443,7 @@ async function startAuto() {
     recordOnceBtn.disabled = false;
     predictBtn.disabled = false;
     skipBtn.disabled = false;
+    updateDeleteLatestButton();
   }
 }
 
@@ -425,6 +481,7 @@ async function collectOne({ reuseTarget = false } = {}) {
     setStatus(`Upload/setup error: ${error.message || error}`);
   } finally {
     state.busy = false;
+    updateDeleteLatestButton();
   }
 }
 
@@ -454,6 +511,7 @@ async function testPrediction() {
   } finally {
     state.busy = false;
     predictBtn.disabled = false;
+    updateDeleteLatestButton();
   }
 }
 
@@ -493,6 +551,7 @@ async function logPredictionFeedback(actualTone) {
       button.disabled = false;
     });
     state.busy = false;
+    updateDeleteLatestButton();
   }
 }
 
@@ -810,6 +869,63 @@ async function uploadSample(
   const { error: insertError } = await supabase.from(TABLE).insert(metadata);
   if (insertError) {
     throw insertError;
+  }
+  rememberUpload({
+    createdAt: new Date().toISOString(),
+    syllable,
+    tone: actualTarget.tone,
+    pinyin: actualTarget.pinyin,
+    status,
+    storagePath,
+    clientSampleId: sample.id,
+    sessionId: state.sessionId,
+  });
+}
+
+async function deleteLatestRecording() {
+  const latest = latestUpload();
+  if (!latest) {
+    setStatus("No uploaded recording to delete from this browser.");
+    return;
+  }
+  state.busy = true;
+  updateDeleteLatestButton();
+  try {
+    setStatus(`Deleting latest upload: ${latest.pinyin}...`);
+    const { error: dbError } = await supabase
+      .from(TABLE)
+      .delete()
+      .eq("storage_path", latest.storagePath)
+      .eq("session_id", latest.sessionId || state.sessionId);
+    if (dbError) {
+      throw dbError;
+    }
+
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET)
+      .remove([latest.storagePath]);
+    if (storageError) {
+      console.warn("Deleted dataset row but could not delete audio object", storageError);
+    }
+
+    forgetLatestUpload();
+    if (latest.status === "uploaded" && latest.syllable === state.toneSet.id) {
+      state.stats[latest.tone] = Math.max(0, (state.stats[latest.tone] || 0) - 1);
+      saveStats();
+      renderStats();
+    }
+    setStatus(
+      storageError
+        ? `Removed ${latest.pinyin} from dataset. Audio cleanup was blocked.`
+        : `Deleted latest upload: ${latest.pinyin}.`
+    );
+    await refreshModel();
+  } catch (error) {
+    console.error(error);
+    setStatus(`Could not delete latest upload: ${error.message || error}`);
+  } finally {
+    state.busy = false;
+    updateDeleteLatestButton();
   }
 }
 

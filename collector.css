@@ -199,7 +199,7 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -218,6 +218,12 @@ h2 {
   background: var(--accent-2);
   color: #092330;
   border-color: transparent;
+}
+
+.button--danger {
+  background: rgba(255, 92, 77, 0.22);
+  border-color: rgba(255, 141, 107, 0.5);
+  color: var(--ink);
 }
 
 .button:disabled {
@@ -398,7 +404,7 @@ code {
   }
 
   .button--accent {
-    grid-column: span 2;
+    grid-column: auto;
   }
 
   .prediction-result {

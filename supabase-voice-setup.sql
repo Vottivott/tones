@@ -53,8 +53,10 @@ alter table public.voice_samples enable row level security;
 revoke select on public.voice_samples from anon;
 grant select (syllable, target_tone, pinyin, pitch_features, storage_bucket, status) on public.voice_samples to anon;
 grant insert on public.voice_samples to anon;
+grant delete on public.voice_samples to anon;
 grant select, insert, update, delete on public.voice_samples to service_role;
 grant insert on storage.objects to anon;
+grant delete on storage.objects to anon;
 
 drop policy if exists "anon_insert_bao_voice_samples" on public.voice_samples;
 drop policy if exists "anon_insert_voice_samples_first8" on public.voice_samples;
@@ -81,6 +83,17 @@ using (
   and target_tone in ('1', '2', '3', '4')
 );
 
+drop policy if exists "anon_delete_voice_samples_first8" on public.voice_samples;
+create policy "anon_delete_voice_samples_first8"
+on public.voice_samples
+for delete
+to anon
+using (
+  syllable in ('ma', 'yi', 'shi', 'ba', 'bao', 'qi', 'tang', 'yan')
+  and storage_bucket = 'voice-samples'
+  and storage_path like syllable || '/%'
+);
+
 drop policy if exists "anon_upload_bao_voice_audio" on storage.objects;
 drop policy if exists "anon_upload_voice_audio_first8" on storage.objects;
 create policy "anon_upload_voice_audio_first8"
@@ -88,6 +101,16 @@ on storage.objects
 for insert
 to anon
 with check (
+  bucket_id = 'voice-samples'
+  and name ~ '^(ma|yi|shi|ba|bao|qi|tang|yan)/'
+);
+
+drop policy if exists "anon_delete_voice_audio_first8" on storage.objects;
+create policy "anon_delete_voice_audio_first8"
+on storage.objects
+for delete
+to anon
+using (
   bucket_id = 'voice-samples'
   and name ~ '^(ma|yi|shi|ba|bao|qi|tang|yan)/'
 );
