@@ -57,36 +57,39 @@ grant select, insert, update, delete on public.voice_samples to service_role;
 grant insert on storage.objects to anon;
 
 drop policy if exists "anon_insert_bao_voice_samples" on public.voice_samples;
-create policy "anon_insert_bao_voice_samples"
+drop policy if exists "anon_insert_voice_samples_first8" on public.voice_samples;
+create policy "anon_insert_voice_samples_first8"
 on public.voice_samples
 for insert
 to anon
 with check (
-  syllable = 'bao'
+  syllable in ('ma', 'yi', 'shi', 'ba', 'bao', 'qi', 'tang', 'yan')
   and storage_bucket = 'voice-samples'
-  and storage_path like 'bao/%'
+  and storage_path like syllable || '/%'
   and target_tone in ('1', '2', '3', '4')
 );
 
 drop policy if exists "anon_read_bao_voice_sample_features" on public.voice_samples;
-create policy "anon_read_bao_voice_sample_features"
+drop policy if exists "anon_read_voice_sample_features_first8" on public.voice_samples;
+create policy "anon_read_voice_sample_features_first8"
 on public.voice_samples
 for select
 to anon
 using (
-  syllable = 'bao'
+  syllable in ('ma', 'yi', 'shi', 'ba', 'bao', 'qi', 'tang', 'yan')
   and storage_bucket = 'voice-samples'
   and target_tone in ('1', '2', '3', '4')
 );
 
 drop policy if exists "anon_upload_bao_voice_audio" on storage.objects;
-create policy "anon_upload_bao_voice_audio"
+drop policy if exists "anon_upload_voice_audio_first8" on storage.objects;
+create policy "anon_upload_voice_audio_first8"
 on storage.objects
 for insert
 to anon
 with check (
   bucket_id = 'voice-samples'
-  and name like 'bao/%'
+  and name ~ '^(ma|yi|shi|ba|bao|qi|tang|yan)/'
 );
 
 commit;

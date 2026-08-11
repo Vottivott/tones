@@ -4,45 +4,99 @@ const SUPABASE_URL = "https://tuyatuvsfunbjeonbuwq.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_0V9d3aa8SD7b_Ako0TFHsQ_p_IHBggg";
 const BUCKET = "voice-samples";
 const TABLE = "voice_samples";
-const SYLLABLE = "bao";
+const DEFAULT_SYLLABLE = "bao";
 const RECORDING_MS = 1450;
 const POST_PROMPT_DELAY_MS = 320;
 const PITCH_VERSION = 1;
 
-const TARGETS = [
+const TONE_SETS = [
   {
-    tone: "1",
-    character: "包",
-    pinyin: "bao1",
-    meaning: "package",
-    image: "meaning_images/package.jpg",
+    id: "ma",
+    label: "ma",
+    entries: [
+      { tone: "1", character: "妈", pinyin: "ma1", meaning: "mother", image: "meaning_images/mother.jpg" },
+      { tone: "2", character: "麻", pinyin: "ma2", meaning: "hemp", image: "meaning_images/hemp.jpg" },
+      { tone: "3", character: "马", pinyin: "ma3", meaning: "horse", image: "meaning_images/horse.jpg" },
+      { tone: "4", character: "骂", pinyin: "ma4", meaning: "scold", image: "meaning_images/scold.jpg" },
+    ],
   },
   {
-    tone: "2",
-    character: "薄",
-    pinyin: "bao2",
-    meaning: "thin",
-    image: "meaning_images/thin.jpg",
+    id: "yi",
+    label: "yi",
+    entries: [
+      { tone: "1", character: "衣", pinyin: "yi1", meaning: "clothes", image: "meaning_images/clothes.jpg" },
+      { tone: "2", character: "姨", pinyin: "yi2", meaning: "aunt", image: "meaning_images/aunt.jpg" },
+      { tone: "3", character: "椅", pinyin: "yi3", meaning: "chair", image: "meaning_images/chair.jpg" },
+      { tone: "4", character: "亿", pinyin: "yi4", meaning: "100 million", image: "meaning_images/fortune.jpg" },
+    ],
   },
   {
-    tone: "3",
-    character: "宝",
-    pinyin: "bao3",
-    meaning: "treasure",
-    image: "meaning_images/treasure.jpg",
+    id: "shi",
+    label: "shi",
+    entries: [
+      { tone: "1", character: "师", pinyin: "shi1", meaning: "teacher", image: "meaning_images/teacher.jpg" },
+      { tone: "2", character: "十", pinyin: "shi2", meaning: "ten", image: "meaning_images/ten.jpg" },
+      { tone: "3", character: "史", pinyin: "shi3", meaning: "history", image: "meaning_images/history.jpg" },
+      { tone: "4", character: "是", pinyin: "shi4", meaning: "is", image: "meaning_images/is.jpg" },
+    ],
   },
   {
-    tone: "4",
-    character: "抱",
-    pinyin: "bao4",
-    meaning: "hug",
-    image: "meaning_images/hug.jpg",
+    id: "ba",
+    label: "ba",
+    entries: [
+      { tone: "1", character: "八", pinyin: "ba1", meaning: "eight", image: "meaning_images/eight.jpg" },
+      { tone: "2", character: "拔", pinyin: "ba2", meaning: "pull", image: "meaning_images/pull.jpg" },
+      { tone: "3", character: "把", pinyin: "ba3", meaning: "hold", image: "meaning_images/hold.jpg" },
+      { tone: "4", character: "爸", pinyin: "ba4", meaning: "dad", image: "meaning_images/dad.jpg" },
+    ],
+  },
+  {
+    id: "bao",
+    label: "bao",
+    entries: [
+      { tone: "1", character: "包", pinyin: "bao1", meaning: "package", image: "meaning_images/package.jpg" },
+      { tone: "2", character: "薄", pinyin: "bao2", meaning: "thin", image: "meaning_images/thin.jpg" },
+      { tone: "3", character: "宝", pinyin: "bao3", meaning: "treasure", image: "meaning_images/treasure.jpg" },
+      { tone: "4", character: "抱", pinyin: "bao4", meaning: "hug", image: "meaning_images/hug.jpg" },
+    ],
+  },
+  {
+    id: "qi",
+    label: "qi",
+    entries: [
+      { tone: "1", character: "七", pinyin: "qi1", meaning: "seven", image: "meaning_images/seven.jpg" },
+      { tone: "2", character: "旗", pinyin: "qi2", meaning: "flag", image: "meaning_images/flag.jpg" },
+      { tone: "3", character: "起", pinyin: "qi3", meaning: "rise", image: "meaning_images/rise.jpg" },
+      { tone: "4", character: "气", pinyin: "qi4", meaning: "air", image: "meaning_images/air.jpg" },
+    ],
+  },
+  {
+    id: "tang",
+    label: "tang",
+    entries: [
+      { tone: "1", character: "汤", pinyin: "tang1", meaning: "soup", image: "meaning_images/soup.jpg" },
+      { tone: "2", character: "糖", pinyin: "tang2", meaning: "sugar", image: "meaning_images/sugar.jpg" },
+      { tone: "3", character: "躺", pinyin: "tang3", meaning: "lie down", image: "meaning_images/lie-down.jpg" },
+      { tone: "4", character: "烫", pinyin: "tang4", meaning: "hot", image: "meaning_images/hot.jpg" },
+    ],
+  },
+  {
+    id: "yan",
+    label: "yan",
+    entries: [
+      { tone: "1", character: "烟", pinyin: "yan1", meaning: "smoke", image: "meaning_images/smoke.jpg" },
+      { tone: "2", character: "盐", pinyin: "yan2", meaning: "salt", image: "meaning_images/salt.jpg" },
+      { tone: "3", character: "眼", pinyin: "yan3", meaning: "eye", image: "meaning_images/eye.jpg" },
+      { tone: "4", character: "燕", pinyin: "yan4", meaning: "swallow", image: "meaning_images/swallow.jpg" },
+    ],
   },
 ];
-const TARGETS_BY_TONE = Object.fromEntries(TARGETS.map((target) => [target.tone, target]));
+const TONE_SETS_BY_ID = Object.fromEntries(TONE_SETS.map((set) => [set.id, set]));
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const collectorTitle = document.getElementById("collectorTitle");
+const syllableSelect = document.getElementById("syllableSelect");
 const targetImage = document.getElementById("targetImage");
 const targetCharacter = document.getElementById("targetCharacter");
 const targetPinyin = document.getElementById("targetPinyin");
@@ -68,6 +122,13 @@ const countEls = {
   "3": document.getElementById("count3"),
   "4": document.getElementById("count4"),
 };
+const countLabelEls = {
+  "1": document.getElementById("countLabel1"),
+  "2": document.getElementById("countLabel2"),
+  "3": document.getElementById("countLabel3"),
+  "4": document.getElementById("countLabel4"),
+};
+const initialToneSet = getInitialToneSet();
 
 const state = {
   running: false,
@@ -79,18 +140,21 @@ const state = {
   mediaRecorder: null,
   pitchTimer: null,
   frames: [],
-  currentTarget: TARGETS[0],
+  toneSet: initialToneSet,
+  currentTarget: initialToneSet.entries[0],
   lastTarget: null,
   targetQueue: [],
   zhVoice: null,
   model: null,
   pendingPrediction: null,
-  stats: loadStats(),
+  stats: loadStats(initialToneSet.id),
   sessionId: getSessionId(),
 };
 
+renderToneSetOptions();
 renderTarget(state.currentTarget);
 renderStats();
+renderToneLabels();
 drawPitch([]);
 loadVoices();
 refreshModel();
@@ -131,6 +195,15 @@ skipBtn.addEventListener("click", () => {
   }
 });
 
+syllableSelect.addEventListener("change", () => {
+  if (state.busy || state.running) {
+    syllableSelect.value = state.toneSet.id;
+    setStatus("Stop the current recording before changing word group.");
+    return;
+  }
+  setToneSet(syllableSelect.value);
+});
+
 actualToneButtons.forEach((button) => {
   button.addEventListener("click", () => {
     if (!state.busy) {
@@ -138,6 +211,27 @@ actualToneButtons.forEach((button) => {
     }
   });
 });
+
+function getInitialToneSet() {
+  const stored = localStorage.getItem("toneVoiceCollector.syllable.v1");
+  return TONE_SETS_BY_ID[stored] || TONE_SETS_BY_ID[DEFAULT_SYLLABLE] || TONE_SETS[0];
+}
+
+function currentTargets() {
+  return state.toneSet.entries;
+}
+
+function currentTargetsByTone() {
+  return Object.fromEntries(currentTargets().map((target) => [target.tone, target]));
+}
+
+function targetForTone(tone) {
+  return currentTargetsByTone()[String(tone)];
+}
+
+function pinyinForTone(tone) {
+  return targetForTone(tone)?.pinyin || `${state.toneSet.id}${tone}`;
+}
 
 function getSessionId() {
   const key = "toneVoiceCollector.sessionId.v1";
@@ -150,23 +244,73 @@ function getSessionId() {
   return next;
 }
 
-function loadStats() {
+function emptyStats() {
+  return { "1": 0, "2": 0, "3": 0, "4": 0 };
+}
+
+function loadStats(syllable) {
   try {
-    const parsed = JSON.parse(localStorage.getItem("toneVoiceCollector.stats.v1") || "{}");
-    return { "1": 0, "2": 0, "3": 0, "4": 0, ...parsed };
+    const parsed = JSON.parse(localStorage.getItem("toneVoiceCollector.stats.v2") || "{}");
+    if (parsed[syllable]) {
+      return { ...emptyStats(), ...parsed[syllable] };
+    }
   } catch {
-    return { "1": 0, "2": 0, "3": 0, "4": 0 };
+    return emptyStats();
   }
+  if (syllable === DEFAULT_SYLLABLE) {
+    try {
+      const legacy = JSON.parse(localStorage.getItem("toneVoiceCollector.stats.v1") || "{}");
+      return { ...emptyStats(), ...legacy };
+    } catch {
+      return emptyStats();
+    }
+  }
+  return emptyStats();
 }
 
 function saveStats() {
-  localStorage.setItem("toneVoiceCollector.stats.v1", JSON.stringify(state.stats));
+  let parsed = {};
+  try {
+    parsed = JSON.parse(localStorage.getItem("toneVoiceCollector.stats.v2") || "{}");
+  } catch {
+    parsed = {};
+  }
+  parsed[state.toneSet.id] = state.stats;
+  localStorage.setItem("toneVoiceCollector.stats.v2", JSON.stringify(parsed));
+}
+
+function renderToneSetOptions() {
+  syllableSelect.innerHTML = "";
+  TONE_SETS.forEach((set, index) => {
+    const option = document.createElement("option");
+    option.value = set.id;
+    option.textContent = `${index + 1}. ${set.label}`;
+    syllableSelect.append(option);
+  });
+  syllableSelect.value = state.toneSet.id;
 }
 
 function renderStats() {
   Object.entries(countEls).forEach(([tone, el]) => {
     el.textContent = String(state.stats[tone] || 0);
   });
+}
+
+function renderToneLabels() {
+  collectorTitle.textContent = `${state.toneSet.label} collector`;
+  actualToneButtons.forEach((button) => {
+    button.textContent = pinyinForTone(button.dataset.tone);
+  });
+  Object.entries(countLabelEls).forEach(([tone, el]) => {
+    el.textContent = pinyinForTone(tone);
+  });
+  if (!state.pendingPrediction) {
+    predictionResult.querySelector(".prediction-result__tone").textContent = "-";
+    predictionResult.querySelector(
+      ".prediction-result__meta"
+    ).textContent = `Tap Test predict and say one ${state.toneSet.label} word.`;
+    predictionScores.innerHTML = "";
+  }
 }
 
 function setStatus(message) {
@@ -185,6 +329,30 @@ function setActualTonePanelVisible(visible) {
   actualTonePanel.hidden = !visible;
 }
 
+function setToneSet(toneSetId) {
+  const nextSet = TONE_SETS_BY_ID[toneSetId];
+  if (!nextSet || nextSet.id === state.toneSet.id) {
+    syllableSelect.value = state.toneSet.id;
+    return;
+  }
+  state.toneSet = nextSet;
+  localStorage.setItem("toneVoiceCollector.syllable.v1", nextSet.id);
+  state.stats = loadStats(nextSet.id);
+  state.currentTarget = nextSet.entries[0];
+  state.lastTarget = null;
+  state.targetQueue = [];
+  state.model = null;
+  state.pendingPrediction = null;
+  syllableSelect.value = nextSet.id;
+  setActualTonePanelVisible(false);
+  renderTarget(state.currentTarget);
+  renderStats();
+  renderToneLabels();
+  drawPitch([]);
+  setStatus(`Ready for ${nextSet.label}.`);
+  refreshModel();
+}
+
 function shuffled(items) {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -196,9 +364,9 @@ function shuffled(items) {
 
 function nextTarget() {
   if (!state.targetQueue.length) {
-    state.targetQueue = shuffled(TARGETS);
+    state.targetQueue = shuffled(currentTargets());
   }
-  return state.targetQueue.shift() || TARGETS[0];
+  return state.targetQueue.shift() || currentTargets()[0];
 }
 
 async function startAuto() {
@@ -276,7 +444,7 @@ async function testPrediction() {
     renderPrediction(prediction);
     setActualTonePanelVisible(true);
     setStatus(
-      `Predicted ${TARGETS_BY_TONE[prediction.tone]?.pinyin || `bao${prediction.tone}`} (${Math.round(
+      `Predicted ${pinyinForTone(prediction.tone)} (${Math.round(
         prediction.confidence * 100
       )}%). Mark what you actually said.`
     );
@@ -293,7 +461,7 @@ async function logPredictionFeedback(actualTone) {
   if (!state.pendingPrediction) {
     return;
   }
-  const actualTarget = TARGETS_BY_TONE[actualTone];
+  const actualTarget = targetForTone(actualTone);
   if (!actualTarget) {
     return;
   }
@@ -314,7 +482,7 @@ async function logPredictionFeedback(actualTone) {
     setStatus(
       prediction.tone === actualTone
         ? `Logged: correct ${actualTarget.pinyin}.`
-        : `Logged: predicted bao${prediction.tone}, actual ${actualTarget.pinyin}.`
+        : `Logged: predicted ${pinyinForTone(prediction.tone)}, actual ${actualTarget.pinyin}.`
     );
     await refreshModel();
   } catch (error) {
@@ -589,7 +757,8 @@ async function uploadSample(
   const ext = extensionForMime(sample.mimeType);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const folder = status === "prediction_eval" ? "prediction-evals" : "training";
-  const storagePath = `${SYLLABLE}/${folder}/${state.sessionId}/${timestamp}_${actualTarget.pinyin}_${sample.id}.${ext}`;
+  const syllable = state.toneSet.id;
+  const storagePath = `${syllable}/${folder}/${state.sessionId}/${timestamp}_${actualTarget.pinyin}_${sample.id}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(storagePath, sample.blob, {
@@ -604,7 +773,7 @@ async function uploadSample(
   const metadata = {
     session_id: state.sessionId,
     client_sample_id: sample.id,
-    syllable: SYLLABLE,
+    syllable,
     target_tone: actualTarget.tone,
     character: actualTarget.character,
     pinyin: actualTarget.pinyin,
@@ -662,20 +831,27 @@ function buildPitchFeatures(sample) {
 }
 
 async function refreshModel() {
+  const syllable = state.toneSet.id;
   modelStatus.textContent = "Loading model...";
   try {
     const { data, error } = await supabase
       .from(TABLE)
       .select("target_tone,pinyin,pitch_features,status")
-      .eq("syllable", SYLLABLE)
+      .eq("syllable", syllable)
       .limit(400);
     if (error) {
       throw error;
+    }
+    if (state.toneSet.id !== syllable) {
+      return;
     }
     state.model = buildKnnModel(data || []);
     renderModelStatus();
   } catch (error) {
     console.warn("Could not load Supabase training data", error);
+    if (state.toneSet.id !== syllable) {
+      return;
+    }
     state.model = null;
     modelStatus.textContent =
       "Using fallback contour heuristic. Run updated SQL to allow model training from collected samples.";
@@ -688,7 +864,7 @@ function buildKnnModel(rows) {
       tone: String(row.target_tone),
       vector: contourVector(row.pitch_features?.frames || []),
     }))
-    .filter((sample) => TARGETS_BY_TONE[sample.tone] && sample.vector);
+    .filter((sample) => targetForTone(sample.tone) && sample.vector);
   const counts = countByTone(samples);
   if (!samples.length) {
     return {
@@ -739,7 +915,7 @@ function renderModelStatus() {
 }
 
 function formatCounts(counts) {
-  return TARGETS.map((target) => `${target.pinyin}:${counts[target.tone] || 0}`).join(" ");
+  return currentTargets().map((target) => `${target.pinyin}:${counts[target.tone] || 0}`).join(" ");
 }
 
 function countByTone(samples) {
@@ -770,7 +946,7 @@ function predictWithKnn(vector, model) {
   const values = vectorValues(vector, model.globalMedianPitch);
   const standardized = standardizeVector(values, model.stats);
   const rawScores = {};
-  TARGETS.forEach((target) => { rawScores[target.tone] = 0.001; });
+  currentTargets().forEach((target) => { rawScores[target.tone] = 0.001; });
   const neighbors = model.samples
     .map((sample) => {
       const featureDistance = euclideanDistance(standardized, sample.values) / Math.sqrt(sample.values.length);
@@ -1029,7 +1205,7 @@ function bestTone(scores) {
 }
 
 function renderPrediction(prediction) {
-  const target = TARGETS_BY_TONE[prediction.tone];
+  const target = targetForTone(prediction.tone);
   predictionResult.querySelector(".prediction-result__tone").textContent = target?.pinyin || "-";
   predictionResult.querySelector(".prediction-result__meta").textContent =
     prediction.reason ||
@@ -1037,7 +1213,7 @@ function renderPrediction(prediction) {
       prediction.confidence * 100
     )}%.`;
   predictionScores.replaceChildren();
-  TARGETS.forEach((targetOption) => {
+  currentTargets().forEach((targetOption) => {
     const score = prediction.scores[targetOption.tone] || 0;
     const item = document.createElement("div");
     item.className = "prediction-score";
@@ -1073,7 +1249,7 @@ function median(values) {
 function exposeFailedBlob(blob, target) {
   const url = URL.createObjectURL(blob);
   failedDownload.href = url;
-  failedDownload.download = `${SYLLABLE}_${target.pinyin}_${Date.now()}.webm`;
+  failedDownload.download = `${state.toneSet.id}_${target.pinyin}_${Date.now()}.webm`;
   failedDownload.hidden = false;
 }
 

@@ -87,10 +87,37 @@ h2 {
 .meter,
 .status-panel,
 .prediction-panel,
+.syllable-picker,
 .setup-note {
   border: 1px solid var(--border);
   background: var(--panel);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.syllable-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.syllable-picker label {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.syllable-picker select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(2, 25, 35, 0.74);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  padding: 8px 10px;
 }
 
 .target {

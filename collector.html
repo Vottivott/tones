@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#073b4a" />
-    <title>Bao Voice Collector</title>
+    <title>Tone Drops Voice Collector</title>
     <link rel="icon" href="icons/icon-192.png" sizes="192x192" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="stylesheet" href="collector.css" />
@@ -14,10 +14,15 @@
       <header class="collector__header">
         <div>
           <p class="eyebrow">Tone Drops voice dataset</p>
-          <h1>Bao collector</h1>
+          <h1 id="collectorTitle">bao collector</h1>
         </div>
         <a class="collector__link" href="./">Game</a>
       </header>
+
+      <section class="syllable-picker" aria-label="Word group">
+        <label for="syllableSelect">Word group</label>
+        <select id="syllableSelect"></select>
+      </section>
 
       <section class="target" aria-live="polite">
         <div class="target__media">
@@ -52,7 +57,7 @@
         </div>
         <div id="predictionResult" class="prediction-result">
           <span class="prediction-result__tone">-</span>
-          <span class="prediction-result__meta">Tap Test predict and say one bao word.</span>
+          <span class="prediction-result__meta">Tap Test predict and say one word from the selected group.</span>
         </div>
         <div id="predictionScores" class="prediction-scores"></div>
         <div id="actualTonePanel" class="actual-tone-panel" hidden>
@@ -70,10 +75,10 @@
         <div id="statusText" class="status-text">Ready. Tap Start auto and allow microphone access.</div>
         <a id="failedDownload" class="download-link" hidden>Download failed clip</a>
         <div class="stats" aria-label="Session upload counts">
-          <div><span id="count1">0</span><small>bao1</small></div>
-          <div><span id="count2">0</span><small>bao2</small></div>
-          <div><span id="count3">0</span><small>bao3</small></div>
-          <div><span id="count4">0</span><small>bao4</small></div>
+          <div><span id="count1">0</span><small id="countLabel1">bao1</small></div>
+          <div><span id="count2">0</span><small id="countLabel2">bao2</small></div>
+          <div><span id="count3">0</span><small id="countLabel3">bao3</small></div>
+          <div><span id="count4">0</span><small id="countLabel4">bao4</small></div>
         </div>
       </section>
 
