@@ -58,6 +58,7 @@ const VOICE_PREDICT_MS = 90;
 const VOICE_ACCEPT_COOLDOWN_MS = 800;
 const VOICE_MIN_VOICED_FRAMES = 7;
 const VOICE_MIN_CONFIDENCE = 0.36;
+const VOICE_FEEDBACK_SUPPRESS_MS = 1700;
 const SKIP_33 = true;
 
 const VOICE_DEFAULT_MODEL_OPTIONS = {
@@ -680,6 +681,7 @@ const state = {
   voiceModelCache: new Map(),
   voiceLastAcceptedAt: 0,
   voiceLastStatusAt: 0,
+  voiceFeedbackUntil: 0,
   hannesMode: HANNES_MODE,
   imagePadOrder: [],
   meaningSet: null,
@@ -1874,16 +1876,34 @@ function stopVoiceInput() {
   state.voiceUtteranceFrames = [];
   state.voiceIsSpeaking = false;
   state.voiceLastVoiceAt = 0;
+  state.voiceFeedbackUntil = 0;
   state.voiceListening = false;
+}
+
+function clearVoiceCaptureState() {
+  state.voiceFrames = [];
+  state.voiceUtteranceFrames = [];
+  state.voiceIsSpeaking = false;
+  state.voiceLastVoiceAt = 0;
+}
+
+function suppressVoiceFeedbackRecognition(durationMs = VOICE_FEEDBACK_SUPPRESS_MS) {
+  state.voiceFeedbackUntil = Math.max(state.voiceFeedbackUntil || 0, performance.now() + durationMs);
+  state.voiceLastAcceptedAt = performance.now();
+  clearVoiceCaptureState();
 }
 
 function captureVoiceFrame() {
   if (!state.voiceAnalyser || !state.voiceAnalyserBuffer || !state.voiceAudioContext) {
     return;
   }
+  const now = performance.now();
+  if (now < state.voiceFeedbackUntil) {
+    clearVoiceCaptureState();
+    return;
+  }
   state.voiceAnalyser.getFloatTimeDomainData(state.voiceAnalyserBuffer);
   const estimate = estimatePitch(state.voiceAnalyserBuffer, state.voiceAudioContext.sampleRate);
-  const now = performance.now();
   const frame = {
     absoluteT: now,
     t: 0,
@@ -1978,6 +1998,10 @@ function runVoicePrediction() {
     return;
   }
   const now = performance.now();
+  if (now < state.voiceFeedbackUntil) {
+    clearVoiceCaptureState();
+    return;
+  }
   const firstFrameAt = state.voiceUtteranceFrames[0]?.absoluteT ?? now;
   const silenceMs = now - state.voiceLastVoiceAt;
   const durationMs = now - firstFrameAt;
@@ -2532,11 +2556,11 @@ if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
 }
 
-function speak(text, { force = false } = {}) {
+function speak(text, { force = false, allowDuringVoiceGame = false } = {}) {
   if (!window.speechSynthesis) {
     return;
   }
-  if (state.toneMode === "vis" || (isVoiceMode() && state.running)) {
+  if (state.toneMode === "vis" || (isVoiceMode() && state.running && !allowDuringVoiceGame)) {
     return;
   }
   const now = performance.now();
@@ -3534,6 +3558,15 @@ function clearDrop(
   queueMeaningSetChange();
 }
 
+function playVoiceMissFeedback(drop) {
+  if (!isVoiceMode() || !drop?.text) {
+    return;
+  }
+  lastSpoken = drop;
+  suppressVoiceFeedbackRecognition();
+  speak(drop.text, { force: true, allowDuringVoiceGame: true });
+}
+
 function missDrop(drop) {
   const index = drops.indexOf(drop);
   if (index === -1) {
@@ -3543,6 +3576,7 @@ function missDrop(drop) {
   drops.splice(index, 1);
   state.lives -= 1;
   updateHud();
+  playVoiceMissFeedback(drop);
   const revealDuration = state.lives <= 0 ? 0.5 : 0.9;
   const revealImage = shouldUseImageReveals()
     ? drop.image || getToneImage(drop.tones)
