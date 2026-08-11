@@ -39,6 +39,7 @@ const TARGETS = [
     image: "meaning_images/hug.jpg",
   },
 ];
+const TARGETS_BY_TONE = Object.fromEntries(TARGETS.map((target) => [target.tone, target]));
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -53,8 +54,12 @@ const statusText = document.getElementById("statusText");
 const failedDownload = document.getElementById("failedDownload");
 const startBtn = document.getElementById("startBtn");
 const recordOnceBtn = document.getElementById("recordOnceBtn");
+const predictBtn = document.getElementById("predictBtn");
 const replayBtn = document.getElementById("replayBtn");
 const skipBtn = document.getElementById("skipBtn");
+const modelStatus = document.getElementById("modelStatus");
+const predictionResult = document.getElementById("predictionResult");
+const predictionScores = document.getElementById("predictionScores");
 const countEls = {
   "1": document.getElementById("count1"),
   "2": document.getElementById("count2"),
@@ -76,6 +81,7 @@ const state = {
   lastTarget: null,
   targetQueue: [],
   zhVoice: null,
+  model: null,
   stats: loadStats(),
   sessionId: getSessionId(),
 };
@@ -84,6 +90,7 @@ renderTarget(state.currentTarget);
 renderStats();
 drawPitch([]);
 loadVoices();
+refreshModel();
 
 if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -100,6 +107,12 @@ startBtn.addEventListener("click", () => {
 recordOnceBtn.addEventListener("click", () => {
   if (!state.busy) {
     collectOne({ reuseTarget: true });
+  }
+});
+
+predictBtn.addEventListener("click", () => {
+  if (!state.busy) {
+    testPrediction();
   }
 });
 
@@ -177,6 +190,7 @@ async function startAuto() {
   state.running = true;
   startBtn.textContent = "Stop";
   recordOnceBtn.disabled = true;
+  predictBtn.disabled = true;
   skipBtn.disabled = true;
   try {
     await ensureMic();
@@ -189,6 +203,7 @@ async function startAuto() {
     state.busy = false;
     startBtn.textContent = "Start auto";
     recordOnceBtn.disabled = false;
+    predictBtn.disabled = false;
     skipBtn.disabled = false;
   }
 }
@@ -227,6 +242,31 @@ async function collectOne({ reuseTarget = false } = {}) {
     setStatus(`Upload/setup error: ${error.message || error}`);
   } finally {
     state.busy = false;
+  }
+}
+
+async function testPrediction() {
+  state.busy = true;
+  predictBtn.disabled = true;
+  failedDownload.hidden = true;
+  failedDownload.removeAttribute("href");
+  try {
+    await ensureMic();
+    setStatus("Recording test sample...");
+    const sample = await recordAudio(state.currentTarget);
+    const prediction = predictTone(sample.frames);
+    renderPrediction(prediction);
+    setStatus(
+      `Predicted ${TARGETS_BY_TONE[prediction.tone]?.pinyin || `bao${prediction.tone}`} (${Math.round(
+        prediction.confidence * 100
+      )}%).`
+    );
+  } catch (error) {
+    console.error(error);
+    setStatus(`Prediction error: ${error.message || error}`);
+  } finally {
+    state.busy = false;
+    predictBtn.disabled = false;
   }
 }
 
@@ -512,6 +552,320 @@ function buildPitchFeatures(sample) {
   };
 }
 
+async function refreshModel() {
+  modelStatus.textContent = "Loading model...";
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("target_tone,pinyin,pitch_features")
+      .eq("syllable", SYLLABLE)
+      .limit(400);
+    if (error) {
+      throw error;
+    }
+    state.model = buildCentroidModel(data || []);
+    renderModelStatus();
+  } catch (error) {
+    console.warn("Could not load Supabase training data", error);
+    state.model = null;
+    modelStatus.textContent =
+      "Using fallback contour heuristic. Run updated SQL to allow model training from collected samples.";
+  }
+}
+
+function buildCentroidModel(rows) {
+  const samples = rows
+    .map((row) => ({
+      tone: String(row.target_tone),
+      vector: contourVector(row.pitch_features?.frames || []),
+    }))
+    .filter((sample) => TARGETS_BY_TONE[sample.tone] && sample.vector);
+  const counts = countByTone(samples);
+  const hasEnoughData = TARGETS.every((target) => (counts[target.tone] || 0) >= 3);
+  if (!hasEnoughData) {
+    return {
+      kind: "heuristic",
+      samples,
+      counts,
+    };
+  }
+
+  const globalMedianPitch = median(
+    samples.map((sample) => sample.vector.medianPitchHz).filter(Number.isFinite)
+  );
+  const vectors = samples
+    .map((sample) => ({
+      tone: sample.tone,
+      values: vectorValues(sample.vector, globalMedianPitch),
+    }))
+    .filter((sample) => sample.values);
+  const stats = vectorStats(vectors.map((sample) => sample.values));
+  const standardized = vectors.map((sample) => ({
+    tone: sample.tone,
+    values: standardizeVector(sample.values, stats),
+  }));
+  const centroids = {};
+  TARGETS.forEach((target) => {
+    const toneVectors = standardized
+      .filter((sample) => sample.tone === target.tone)
+      .map((sample) => sample.values);
+    centroids[target.tone] = averageVector(toneVectors);
+  });
+  return {
+    kind: "centroid",
+    counts,
+    globalMedianPitch,
+    stats,
+    centroids,
+  };
+}
+
+function renderModelStatus() {
+  if (!state.model || state.model.kind !== "centroid") {
+    const counts = state.model?.counts || {};
+    modelStatus.textContent = `Using fallback contour heuristic. Readable samples: ${formatCounts(counts)}.`;
+    return;
+  }
+  modelStatus.textContent = `Using Supabase-trained model. Samples: ${formatCounts(state.model.counts)}.`;
+}
+
+function formatCounts(counts) {
+  return TARGETS.map((target) => `${target.pinyin}:${counts[target.tone] || 0}`).join(" ");
+}
+
+function countByTone(samples) {
+  return samples.reduce((counts, sample) => {
+    counts[sample.tone] = (counts[sample.tone] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function predictTone(frames) {
+  const vector = contourVector(frames);
+  if (!vector) {
+    return {
+      tone: "1",
+      confidence: 0,
+      method: "none",
+      scores: { "1": 0, "2": 0, "3": 0, "4": 0 },
+      reason: "Not enough voiced pitch frames.",
+    };
+  }
+  if (state.model?.kind === "centroid") {
+    return predictWithCentroids(vector, state.model);
+  }
+  return predictWithHeuristic(vector);
+}
+
+function predictWithCentroids(vector, model) {
+  const values = vectorValues(vector, model.globalMedianPitch);
+  const standardized = standardizeVector(values, model.stats);
+  const distances = {};
+  TARGETS.forEach((target) => {
+    distances[target.tone] = euclideanDistance(standardized, model.centroids[target.tone]);
+  });
+  const maxDistance = Math.max(...Object.values(distances));
+  const rawScores = {};
+  TARGETS.forEach((target) => {
+    rawScores[target.tone] = Math.max(0.001, maxDistance - distances[target.tone] + 0.001);
+  });
+  const scores = normalizeScores(rawScores);
+  const tone = bestTone(scores);
+  return {
+    tone,
+    confidence: scores[tone],
+    method: "dataset centroid",
+    scores,
+    features: vector,
+  };
+}
+
+function predictWithHeuristic(vector) {
+  const { slope, earlySlope, lateSlope, range, minPosition, end, start, meanRel } = vector;
+  const scores = {
+    "1": 0.35,
+    "2": 0.35,
+    "3": 0.35,
+    "4": 0.35,
+  };
+
+  if (Math.abs(slope) < 1.8 && range < 4.2) {
+    scores["1"] += 1.4;
+  }
+  if (slope > 1.8 && lateSlope > 0.7) {
+    scores["2"] += 1.35 + Math.min(1, slope / 8);
+  }
+  if (earlySlope < -1.2 && lateSlope > 0.8 && minPosition > 0.18 && minPosition < 0.82) {
+    scores["3"] += 1.65 + Math.min(1, range / 9);
+  }
+  if (slope < -2.2 && end < start - 1.5) {
+    scores["4"] += 1.45 + Math.min(1, Math.abs(slope) / 8);
+  }
+  if (meanRel > 1.4 && Math.abs(slope) < 3) {
+    scores["1"] += 0.35;
+  }
+  if (meanRel < -1.4 && range > 3) {
+    scores["3"] += 0.25;
+  }
+
+  const normalized = normalizeScores(scores);
+  const tone = bestTone(normalized);
+  return {
+    tone,
+    confidence: normalized[tone],
+    method: "contour heuristic",
+    scores: normalized,
+    features: vector,
+  };
+}
+
+function contourVector(frames) {
+  const voiced = frames
+    .filter((frame) => frame.pitchHz && frame.pitchHz >= 65 && frame.pitchHz <= 520)
+    .filter((frame) => (frame.clarity ?? 1) >= 0.33)
+    .sort((a, b) => a.t - b.t);
+  if (voiced.length < 5) {
+    return null;
+  }
+  const pitches = voiced.map((frame) => frame.pitchHz);
+  const medianPitchHz = median(pitches);
+  if (!medianPitchHz) {
+    return null;
+  }
+  const semitones = voiced.map((frame) => 12 * Math.log2(frame.pitchHz / medianPitchHz));
+  const smoothed = smoothValues(semitones);
+  const points = resampleValues(smoothed, 5);
+  const minValue = Math.min(...smoothed);
+  const maxValue = Math.max(...smoothed);
+  const minIndex = smoothed.indexOf(minValue);
+  const maxIndex = smoothed.indexOf(maxValue);
+  const start = points[0];
+  const q1 = points[1];
+  const mid = points[2];
+  const q3 = points[3];
+  const end = points[4];
+  const meanSemi = mean(smoothed) ?? 0;
+  return {
+    medianPitchHz,
+    start,
+    q1,
+    mid,
+    q3,
+    end,
+    mean: meanSemi,
+    meanRel: 0,
+    slope: end - start,
+    earlySlope: mid - start,
+    lateSlope: end - mid,
+    range: maxValue - minValue,
+    minPosition: smoothed.length > 1 ? minIndex / (smoothed.length - 1) : 0,
+    maxPosition: smoothed.length > 1 ? maxIndex / (smoothed.length - 1) : 0,
+    voicedFrameCount: voiced.length,
+  };
+}
+
+function vectorValues(vector, globalMedianPitch = vector.medianPitchHz) {
+  if (!vector || !globalMedianPitch) {
+    return null;
+  }
+  const meanRel = 12 * Math.log2(vector.medianPitchHz / globalMedianPitch);
+  return [
+    vector.start,
+    vector.q1,
+    vector.mid,
+    vector.q3,
+    vector.end,
+    vector.slope,
+    vector.earlySlope,
+    vector.lateSlope,
+    vector.range,
+    vector.minPosition,
+    vector.maxPosition,
+    meanRel,
+  ];
+}
+
+function vectorStats(vectors) {
+  const dimensions = vectors[0]?.length || 0;
+  const means = Array.from({ length: dimensions }, (_, index) =>
+    mean(vectors.map((vector) => vector[index])) ?? 0
+  );
+  const stds = Array.from({ length: dimensions }, (_, index) => {
+    const variance =
+      mean(vectors.map((vector) => (vector[index] - means[index]) ** 2)) ?? 0;
+    return Math.sqrt(variance) || 1;
+  });
+  return { means, stds };
+}
+
+function standardizeVector(vector, stats) {
+  return vector.map((value, index) => (value - stats.means[index]) / stats.stds[index]);
+}
+
+function averageVector(vectors) {
+  if (!vectors.length) {
+    return [];
+  }
+  return vectors[0].map((_, index) => mean(vectors.map((vector) => vector[index])) ?? 0);
+}
+
+function euclideanDistance(left, right) {
+  return Math.sqrt(
+    left.reduce((sum, value, index) => sum + (value - (right[index] ?? 0)) ** 2, 0)
+  );
+}
+
+function smoothValues(values) {
+  return values.map((value, index) => {
+    const window = values.slice(Math.max(0, index - 1), Math.min(values.length, index + 2));
+    return median(window) ?? value;
+  });
+}
+
+function resampleValues(values, count) {
+  if (values.length === 1) {
+    return Array.from({ length: count }, () => values[0]);
+  }
+  return Array.from({ length: count }, (_, index) => {
+    const position = (index / (count - 1)) * (values.length - 1);
+    const low = Math.floor(position);
+    const high = Math.min(values.length - 1, Math.ceil(position));
+    const mix = position - low;
+    return values[low] * (1 - mix) + values[high] * mix;
+  });
+}
+
+function normalizeScores(scores) {
+  const total = Object.values(scores).reduce((sum, value) => sum + Math.max(0, value), 0) || 1;
+  return Object.fromEntries(
+    Object.entries(scores).map(([tone, value]) => [tone, Math.max(0, value) / total])
+  );
+}
+
+function bestTone(scores) {
+  return Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] || "1";
+}
+
+function renderPrediction(prediction) {
+  const target = TARGETS_BY_TONE[prediction.tone];
+  predictionResult.querySelector(".prediction-result__tone").textContent = target?.pinyin || "-";
+  predictionResult.querySelector(".prediction-result__meta").textContent =
+    prediction.reason ||
+    `${target.character} / ${target.meaning}. ${prediction.method}, confidence ${Math.round(
+      prediction.confidence * 100
+    )}%.`;
+  predictionScores.replaceChildren();
+  TARGETS.forEach((targetOption) => {
+    const score = prediction.scores[targetOption.tone] || 0;
+    const item = document.createElement("div");
+    item.className = "prediction-score";
+    item.innerHTML = `<span>${targetOption.pinyin} ${Math.round(score * 100)}%</span><div class="prediction-score__bar"><span style="--score-width: ${Math.round(
+      score * 100
+    )}%"></span></div>`;
+    predictionScores.appendChild(item);
+  });
+}
+
 function baseMimeType(mimeType) {
   return (mimeType || "audio/webm").split(";")[0].trim() || "audio/webm";
 }
@@ -521,6 +875,17 @@ function mean(values) {
     return null;
   }
   return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+}
+
+function median(values) {
+  const clean = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!clean.length) {
+    return null;
+  }
+  const middle = Math.floor(clean.length / 2);
+  return clean.length % 2
+    ? clean[middle]
+    : (clean[middle - 1] + clean[middle]) / 2;
 }
 
 function exposeFailedBlob(blob, target) {

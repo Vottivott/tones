@@ -1,4 +1,4 @@
-const CACHE_NAME = "tone-raindrops-v60";
+const CACHE_NAME = "tone-raindrops-v61";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./collector.css",
   "./app.js",
   "./collector.js",
+  "./supabase-voice-setup.sql",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

@@ -86,6 +86,7 @@ h2 {
 .target,
 .meter,
 .status-panel,
+.prediction-panel,
 .setup-note {
   border: 1px solid var(--border);
   background: var(--panel);
@@ -171,7 +172,7 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -186,9 +187,87 @@ h2 {
   border-color: transparent;
 }
 
+.button--accent {
+  background: var(--accent-2);
+  color: #092330;
+  border-color: transparent;
+}
+
 .button:disabled {
   opacity: 0.52;
   cursor: not-allowed;
+}
+
+.prediction-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.prediction-panel__status {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.prediction-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(2, 25, 35, 0.52);
+}
+
+.prediction-result__tone {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #092330;
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.prediction-result__meta {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.prediction-scores {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.prediction-score {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border-radius: 10px;
+  background: rgba(2, 25, 35, 0.46);
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.prediction-score__bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(232, 247, 251, 0.14);
+}
+
+.prediction-score__bar span {
+  display: block;
+  height: 100%;
+  width: var(--score-width, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
 }
 
 .status-panel {
@@ -255,6 +334,23 @@ code {
   }
 
   .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .button--accent {
+    grid-column: span 2;
+  }
+
+  .prediction-result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .prediction-result__tone {
+    width: 100%;
+    height: 58px;
+  }
+
+  .prediction-scores {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -40,8 +40,21 @@
       <section class="controls" aria-label="Collection controls">
         <button id="startBtn" class="button button--primary" type="button">Start auto</button>
         <button id="recordOnceBtn" class="button" type="button">Record once</button>
+        <button id="predictBtn" class="button button--accent" type="button">Test predict</button>
         <button id="replayBtn" class="button" type="button">Replay</button>
         <button id="skipBtn" class="button" type="button">Skip</button>
+      </section>
+
+      <section class="prediction-panel" aria-live="polite">
+        <div>
+          <h2>Prediction</h2>
+          <p id="modelStatus" class="prediction-panel__status">Loading model...</p>
+        </div>
+        <div id="predictionResult" class="prediction-result">
+          <span class="prediction-result__tone">-</span>
+          <span class="prediction-result__meta">Tap Test predict and say one bao word.</span>
+        </div>
+        <div id="predictionScores" class="prediction-scores"></div>
       </section>
 
       <section class="status-panel">

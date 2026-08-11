@@ -42,6 +42,8 @@ create table if not exists public.voice_samples (
 
 alter table public.voice_samples enable row level security;
 
+revoke select on public.voice_samples from anon;
+grant select (syllable, target_tone, pinyin, pitch_features, storage_bucket) on public.voice_samples to anon;
 grant insert on public.voice_samples to anon;
 grant select, insert, update, delete on public.voice_samples to service_role;
 grant insert on storage.objects to anon;
@@ -55,6 +57,17 @@ with check (
   syllable = 'bao'
   and storage_bucket = 'voice-samples'
   and storage_path like 'bao/%'
+  and target_tone in ('1', '2', '3', '4')
+);
+
+drop policy if exists "anon_read_bao_voice_sample_features" on public.voice_samples;
+create policy "anon_read_bao_voice_sample_features"
+on public.voice_samples
+for select
+to anon
+using (
+  syllable = 'bao'
+  and storage_bucket = 'voice-samples'
   and target_tone in ('1', '2', '3', '4')
 );
 
