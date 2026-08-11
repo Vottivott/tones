@@ -334,5 +334,117 @@
     "license": "Public domain",
     "license_url": "",
     "artist": "Jon Sullivan"
+  },
+  "pot": {
+    "file": "File:COOKING POT ON FIRE.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:COOKING_POT_ON_FIRE.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Chuks Zilo"
+  },
+  "country": {
+    "file": "File:Flags of countries of the Baltic Sea in Helsinki.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Flags_of_countries_of_the_Baltic_Sea_in_Helsinki.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "Pudelek (Marcin Szala)"
+  },
+  "fruit": {
+    "file": "File:20241117 Fruit Platter anagoria.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:20241117_Fruit_Platter_anagoria.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Anagoria"
+  },
+  "cross": {
+    "file": "File:Crosswalk of Market at Third, San Francisco.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Crosswalk_of_Market_at_Third,_San_Francisco.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Dllu"
+  },
+  "star": {
+    "file": "File:Purple starry sky (Unsplash).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Purple_starry_sky_(Unsplash).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Dawid Zawiła davealmine"
+  },
+  "walk": {
+    "file": "File:Young woman walking on the street.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Young_woman_walking_on_the_street.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Martin Vorel"
+  },
+  "wake": {
+    "file": "File:Classic alarm clock 20180513.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Classic_alarm_clock_20180513.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Santeri Viinamäki"
+  },
+  "name": {
+    "file": "File:Jju Wikipedia Outreach Zonkwa 2025 Name tag.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Jju_Wikipedia_Outreach_Zonkwa_2025_Name_tag.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Kambai Akau"
+  },
+  "capital": {
+    "file": "File:Manhattan (NYC-New York City) Skyline (31769153946).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Manhattan_(NYC-New_York_City)_Skyline_(31769153946).jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Michael Vadon"
+  },
+  "read": {
+    "file": "File:Person reading a book.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Person_reading_a_book.jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Christopher Michel"
+  },
+  "gamble": {
+    "file": "File:Gambling - 104 365 (3300569222).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Gambling_-_104_365_(3300569222).jpg",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "artist": "Niklas Morberg"
+  },
+  "belly": {
+    "file": "File:Belly Button.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Belly_Button.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Md farhan anis"
+  },
+  "chicken": {
+    "file": "File:Chicken February 2009-1.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Chicken_February_2009-1.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "Alvesgaspar"
+  },
+  "urgent": {
+    "file": "File:American Emergency Ambulance at a car show in Puerto Rico in 2013.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:American_Emergency_Ambulance_at_a_car_show_in_Puerto_Rico_in_2013.jpg",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "artist": "Tomás Del Coro"
+  },
+  "several": {
+    "file": "File:Six sided dice.png",
+    "source": "https://commons.wikimedia.org/wiki/File:Six_sided_dice.png",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "wirelizard"
+  },
+  "remember": {
+    "file": "File:Pen on a notebook (Unsplash).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Pen_on_a_notebook_(Unsplash).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Thomas Martinsen faceline"
   }
 }

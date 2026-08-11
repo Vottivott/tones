@@ -437,6 +437,46 @@ const MEANING_TONE_SETS = [
       { text: "树", tones: "4", sv: "träd", meaning: "tree", image: "meaning_images/tree.jpg" },
     ],
   },
+  {
+    id: "guo",
+    label: "guo",
+    entries: [
+      { text: "锅", tones: "1", sv: "gryta; kastrull", meaning: "pot", image: "meaning_images/pot.jpg" },
+      { text: "国", tones: "2", sv: "land; stat", meaning: "country", image: "meaning_images/country.jpg" },
+      { text: "果", tones: "3", sv: "frukt", meaning: "fruit", image: "meaning_images/fruit.jpg" },
+      { text: "过", tones: "4", sv: "passera; gå över", meaning: "cross", image: "meaning_images/cross.jpg" },
+    ],
+  },
+  {
+    id: "xing",
+    label: "xing",
+    entries: [
+      { text: "星", tones: "1", sv: "stjärna", meaning: "star", image: "meaning_images/star.jpg" },
+      { text: "行", tones: "2", sv: "gå; fungera", meaning: "walk", image: "meaning_images/walk.jpg" },
+      { text: "醒", tones: "3", sv: "vakna", meaning: "wake", image: "meaning_images/wake.jpg" },
+      { text: "姓", tones: "4", sv: "efternamn", meaning: "name", image: "meaning_images/name.jpg" },
+    ],
+  },
+  {
+    id: "du",
+    label: "du",
+    entries: [
+      { text: "都", tones: "1", sv: "huvudstad; storstad", meaning: "capital", image: "meaning_images/capital.jpg" },
+      { text: "读", tones: "2", sv: "läsa", meaning: "read", image: "meaning_images/read.jpg" },
+      { text: "赌", tones: "3", sv: "spela om pengar", meaning: "gamble", image: "meaning_images/gamble.jpg" },
+      { text: "肚", tones: "4", sv: "mage", meaning: "belly", image: "meaning_images/belly.jpg" },
+    ],
+  },
+  {
+    id: "ji",
+    label: "ji",
+    entries: [
+      { text: "鸡", tones: "1", sv: "höna; kyckling", meaning: "chicken", image: "meaning_images/chicken.jpg" },
+      { text: "急", tones: "2", sv: "brådskande; akut", meaning: "urgent", image: "meaning_images/urgent.jpg" },
+      { text: "几", tones: "3", sv: "några; hur många", meaning: "several", image: "meaning_images/several.jpg" },
+      { text: "记", tones: "4", sv: "minnas; anteckna", meaning: "remember", image: "meaning_images/remember.jpg" },
+    ],
+  },
 ];
 
 MEANING_TONE_SETS.forEach((set) => {
