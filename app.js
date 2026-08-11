@@ -355,6 +355,86 @@ const MEANING_TONE_SETS = [
       { text: "爸", tones: "4", sv: "pappa", meaning: "dad", image: "meaning_images/dad.jpg" },
     ],
   },
+  {
+    id: "bao",
+    label: "bao",
+    entries: [
+      { text: "包", tones: "1", sv: "paket; väska", meaning: "package", image: "meaning_images/package.jpg" },
+      { text: "薄", tones: "2", sv: "tunn", meaning: "thin", image: "meaning_images/thin.jpg" },
+      { text: "宝", tones: "3", sv: "skatt", meaning: "treasure", image: "meaning_images/treasure.jpg" },
+      { text: "抱", tones: "4", sv: "krama; hålla om", meaning: "hug", image: "meaning_images/hug.jpg" },
+    ],
+  },
+  {
+    id: "qi",
+    label: "qi",
+    entries: [
+      { text: "七", tones: "1", sv: "sju", meaning: "seven", image: "meaning_images/seven.jpg" },
+      { text: "旗", tones: "2", sv: "flagga", meaning: "flag", image: "meaning_images/flag.jpg" },
+      { text: "起", tones: "3", sv: "stiga upp", meaning: "rise", image: "meaning_images/rise.jpg" },
+      { text: "气", tones: "4", sv: "luft; gas", meaning: "air", image: "meaning_images/air.jpg" },
+    ],
+  },
+  {
+    id: "tang",
+    label: "tang",
+    entries: [
+      { text: "汤", tones: "1", sv: "soppa", meaning: "soup", image: "meaning_images/soup.jpg" },
+      { text: "糖", tones: "2", sv: "socker", meaning: "sugar", image: "meaning_images/sugar.jpg" },
+      { text: "躺", tones: "3", sv: "ligga", meaning: "lie down", image: "meaning_images/lie-down.jpg" },
+      { text: "烫", tones: "4", sv: "het; skålla", meaning: "hot", image: "meaning_images/hot.jpg" },
+    ],
+  },
+  {
+    id: "yan",
+    label: "yan",
+    entries: [
+      { text: "烟", tones: "1", sv: "rök", meaning: "smoke", image: "meaning_images/smoke.jpg" },
+      { text: "盐", tones: "2", sv: "salt", meaning: "salt", image: "meaning_images/salt.jpg" },
+      { text: "眼", tones: "3", sv: "öga", meaning: "eye", image: "meaning_images/eye.jpg" },
+      { text: "燕", tones: "4", sv: "svala", meaning: "swallow", image: "meaning_images/swallow.jpg" },
+    ],
+  },
+  {
+    id: "yao",
+    label: "yao",
+    entries: [
+      { text: "腰", tones: "1", sv: "midja", meaning: "waist", image: "meaning_images/waist.jpg" },
+      { text: "摇", tones: "2", sv: "skaka; vagga", meaning: "shake", image: "meaning_images/shake.jpg" },
+      { text: "咬", tones: "3", sv: "bita", meaning: "bite", image: "meaning_images/bite.jpg" },
+      { text: "药", tones: "4", sv: "medicin", meaning: "medicine", image: "meaning_images/medicine.jpg" },
+    ],
+  },
+  {
+    id: "zhu",
+    label: "zhu",
+    entries: [
+      { text: "猪", tones: "1", sv: "gris", meaning: "pig", image: "meaning_images/pig.jpg" },
+      { text: "竹", tones: "2", sv: "bambu", meaning: "bamboo", image: "meaning_images/bamboo.jpg" },
+      { text: "煮", tones: "3", sv: "koka", meaning: "boil", image: "meaning_images/boil.jpg" },
+      { text: "住", tones: "4", sv: "bo; stanna", meaning: "home", image: "meaning_images/home.jpg" },
+    ],
+  },
+  {
+    id: "mao",
+    label: "mao",
+    entries: [
+      { text: "猫", tones: "1", sv: "katt", meaning: "cat", image: "meaning_images/cat.jpg" },
+      { text: "毛", tones: "2", sv: "hår; päls", meaning: "hair", image: "meaning_images/hair.jpg" },
+      { text: "卯", tones: "3", sv: "hare; kanin", meaning: "rabbit", image: "meaning_images/rabbit.jpg" },
+      { text: "帽", tones: "4", sv: "hatt", meaning: "hat", image: "meaning_images/hat.jpg" },
+    ],
+  },
+  {
+    id: "shu",
+    label: "shu",
+    entries: [
+      { text: "书", tones: "1", sv: "bok", meaning: "book", image: "meaning_images/book.jpg" },
+      { text: "熟", tones: "2", sv: "mogen; tillagad", meaning: "ripe", image: "meaning_images/ripe.jpg" },
+      { text: "鼠", tones: "3", sv: "mus", meaning: "mouse", image: "meaning_images/mouse.jpg" },
+      { text: "树", tones: "4", sv: "träd", meaning: "tree", image: "meaning_images/tree.jpg" },
+    ],
+  },
 ];
 
 MEANING_TONE_SETS.forEach((set) => {

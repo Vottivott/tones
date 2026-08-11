@@ -110,5 +110,229 @@
     "license": "CC BY 4.0",
     "license_url": "https://creativecommons.org/licenses/by/4.0",
     "artist": "Marie-Sophie Mejan"
+  },
+  "package": {
+    "file": "File:Handing a package over for delivery.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Handing_a_package_over_for_delivery.jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Meanwell Packaging"
+  },
+  "thin": {
+    "file": "File:Paper sheets (AM 11720-21).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Paper_sheets_(AM_11720-21).jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "Unknown author Unknown author"
+  },
+  "treasure": {
+    "file": "File:Treasure Chest (128280469).jpeg",
+    "source": "https://commons.wikimedia.org/wiki/File:Treasure_Chest_(128280469).jpeg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "Pierre Pericard"
+  },
+  "hug": {
+    "file": "File:Hug it out (52987500111).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Hug_it_out_(52987500111).jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "istolethetv"
+  },
+  "seven": {
+    "file": "File:Seven sign.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Seven_sign.jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Jon Sullivan"
+  },
+  "flag": {
+    "file": "File:Raising the Flag on Iwo Jima, by Joe Rosenthal.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Raising_the_Flag_on_Iwo_Jima,_by_Joe_Rosenthal.jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Joe Rosenthal"
+  },
+  "rise": {
+    "file": "File:Sunrise Over the Ocean.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Sunrise_Over_the_Ocean.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Hommie09"
+  },
+  "air": {
+    "file": "File:Air bubbles in a pool as a man surfaces for air.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Air_bubbles_in_a_pool_as_a_man_surfaces_for_air.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "David Shankbone"
+  },
+  "soup": {
+    "file": "File:-2021-11-08 Bowl of Celeriac soup, Trimingham.JPG",
+    "source": "https://commons.wikimedia.org/wiki/File:-2021-11-08_Bowl_of_Celeriac_soup,_Trimingham.JPG",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Kolforn ( Kolforn ) I'd appreciate if you could mail me (Kolforn@gmail.com) if you want to use this picture out of the Wikimedia project scope. This file is licensed under the Creative Commons Attribution-Share Alike 4.0 International license. You are free: to share – to copy, distribute and transmit the work to remix – to adapt the work Under the following conditions: attribution – You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use. share alike – If you remix, transform, or build upon the material, you must distribute your contributions under the same or compatible license as the original. https://creativecommons.org/licenses/by-sa/4.0 CC BY-SA 4.0 Creative Commons Attribution-Share Alike 4.0 true true"
+  },
+  "sugar": {
+    "file": "File:Sugar Cubes (7164573186) (cropped).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Sugar_Cubes_(7164573186)_(cropped).jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "david pacey from LEEDS, West yorkshire"
+  },
+  "lie-down": {
+    "file": "File:Woman Lying Down.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Woman_Lying_Down.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Moloney Fashion"
+  },
+  "hot": {
+    "file": "File:Yellow kettle with boiling water on stovetop.jpeg",
+    "source": "https://commons.wikimedia.org/wiki/File:Yellow_kettle_with_boiling_water_on_stovetop.jpeg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "User:Ragesoss"
+  },
+  "smoke": {
+    "file": "File:Purple Smoke Cloud.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Purple_Smoke_Cloud.jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Alasdair"
+  },
+  "salt": {
+    "file": "File:Salt-crystals.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Salt-crystals.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Nate Steiner"
+  },
+  "eye": {
+    "file": "File:Human eye iris 1.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Human_eye_iris_1.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "Kamil Saitov"
+  },
+  "swallow": {
+    "file": "File:Barn swallow (young bird) at Tennōji Park in Osaka, June 2016 III.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Barn_swallow_(young_bird)_at_Tenn%C5%8Dji_Park_in_Osaka,_June_2016_III.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Laitche"
+  },
+  "waist": {
+    "file": "File:Female Waist.png",
+    "source": "https://commons.wikimedia.org/wiki/File:Female_Waist.png",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Elements Of This World"
+  },
+  "shake": {
+    "file": "File:East and West Shaking hands at the laying of last rail Union Pacific Railroad - Restoration.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:East_and_West_Shaking_hands_at_the_laying_of_last_rail_Union_Pacific_Railroad_-_Restoration.jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Andrew J. Russell / Adam Cuerden"
+  },
+  "bite": {
+    "file": "File:Whole apple and bitten apple.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Whole_apple_and_bitten_apple.jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Lucíola Correia"
+  },
+  "medicine": {
+    "file": "File:Dr Williams' 'Pink Pills', London, England, 1850-1920 Wellcome A627306.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Dr_Williams%27_%27Pink_Pills%27,_London,_England,_1850-1920_Wellcome_A627306.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "https://wellcomeimages.org/indexplus/obf_images/ed/7b/3b6984a03303ea351ccb108e250a.jpg Gallery: https://wellcomeimages.org/indexplus/image/L0058211.html Wellcome Collection gallery (2018-03-29): https://collection.sciencemuseumgroup.org.uk/objects/co180626/dr-williams-pink-pills CC-BY-4.0"
+  },
+  "pig": {
+    "file": "File:Pig in mud in Berkshire - geograph.org.uk - 981002.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Pig_in_mud_in_Berkshire_-_geograph.org.uk_-_981002.jpg",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "artist": "Graham Horn"
+  },
+  "bamboo": {
+    "file": "File:Bamboo Grove 3.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Bamboo_Grove_3.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "David Osipov"
+  },
+  "boil": {
+    "file": "File:Water boiling in a pot on a stove.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Water_boiling_in_a_pot_on_a_stove.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Tomwsulcer"
+  },
+  "home": {
+    "file": "File:Red House home of William Morris.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Red_House_home_of_William_Morris.jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Tony Hisgett from Birmingham, UK"
+  },
+  "cat": {
+    "file": "File:Cat face closeup.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Cat_face_closeup.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "Wolfgang Hägele"
+  },
+  "hair": {
+    "file": "File:Human hair.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Human_hair.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Yulianna.x"
+  },
+  "rabbit": {
+    "file": "File:ConejoBlanco.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:ConejoBlanco.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "May0nesita wikipeadora"
+  },
+  "hat": {
+    "file": "File:Yellow hard hat.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Yellow_hard_hat.jpg",
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "artist": "רנדום"
+  },
+  "book": {
+    "file": "File:Open book (Unsplash).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Open_book_(Unsplash).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Ben White benwhitephotography"
+  },
+  "ripe": {
+    "file": "File:Ripe fruit of Asimina triloba.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Ripe_fruit_of_Asimina_triloba.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Cbarlow"
+  },
+  "mouse": {
+    "file": "File:Nature-animal-mouse-beautiful (24030698130).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Nature-animal-mouse-beautiful_(24030698130).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "www.Pixel.la Free Stock Photos"
+  },
+  "tree": {
+    "file": "File:Oak tree.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Oak_tree.jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Jon Sullivan"
   }
 }
