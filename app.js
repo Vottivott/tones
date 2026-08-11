@@ -38,6 +38,9 @@ const imagePad = document.getElementById("imagePad");
 
 const STORAGE_KEY = "toneRaindropProgress";
 const HANNES_KEY = "hannes";
+const SUPABASE_URL = "https://tuyatuvsfunbjeonbuwq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_0V9d3aa8SD7b_Ako0TFHsQ_p_IHBggg";
+const VOICE_TABLE = "voice_samples";
 const INPUT_IDLE_CLEAR_MS = 1000;
 const SPEECH_MIN_INTERVAL_MS = 320;
 const MAX_FRAME_DELTA = 0.08;
@@ -48,6 +51,11 @@ const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
 const MEANING_SET_CHANGE_DELAY_MS = 650;
 const MAX_REVIEW_LOG_ENTRIES = 5000;
 const REVIEW_LOG_VERSION = 1;
+const VOICE_FRAME_MS = 45;
+const VOICE_WINDOW_MS = 1300;
+const VOICE_PREDICT_MS = 620;
+const VOICE_ACCEPT_COOLDOWN_MS = 950;
+const VOICE_MIN_CONFIDENCE = 0.36;
 const SKIP_33 = true;
 
 const HANNES_MODE = getHannesMode();
@@ -631,8 +639,22 @@ const state = {
   useImagePad:
     progress.toneMode === "images" ||
     progress.toneMode === "shuffle" ||
-    progress.toneMode === "meaning",
+    progress.toneMode === "meaning" ||
+    progress.toneMode === "voice",
   useVisDrops: progress.toneMode === "vis",
+  voiceListening: false,
+  voiceStream: null,
+  voiceAudioContext: null,
+  voiceAnalyser: null,
+  voiceAnalyserBuffer: null,
+  voiceCaptureTimer: null,
+  voicePredictTimer: null,
+  voiceFrames: [],
+  voiceModel: null,
+  voiceModelFamilyId: null,
+  voiceModelCache: new Map(),
+  voiceLastAcceptedAt: 0,
+  voiceLastStatusAt: 0,
   hannesMode: HANNES_MODE,
   imagePadOrder: [],
   meaningSet: null,
@@ -718,7 +740,7 @@ function getHannesMode() {
 function getToneModeOverride() {
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("mode");
-  if (["numbers", "symbols", "images", "shuffle", "vis", "meaning"].includes(mode)) {
+  if (["numbers", "symbols", "images", "shuffle", "vis", "meaning", "voice"].includes(mode)) {
     return normalizeToneMode(mode);
   }
   const value = params.get("numbers");
@@ -732,6 +754,9 @@ function getToneModeOverride() {
 }
 
 function normalizeToneMode(mode) {
+  if (mode === "voice") {
+    return "voice";
+  }
   if (mode === "meaning") {
     return "meaning";
   }
@@ -760,6 +785,9 @@ function getUnlockMode() {
   if (state.toneMode === "vis") {
     return "vis";
   }
+  if (state.toneMode === "voice") {
+    return "voice";
+  }
   if (state.toneMode === "meaning") {
     return "meaning";
   }
@@ -773,11 +801,13 @@ function loadProgress() {
     unlockedVis: new Set(),
     unlockedShuffle: new Set(),
     unlockedMeaning: new Set(),
+    unlockedVoice: new Set(),
     highscores: {},
     highscoresImage: {},
     highscoresVis: {},
     highscoresShuffle: {},
     highscoresMeaning: {},
+    highscoresVoice: {},
     reviewLog: [],
     reviewStats: {},
     lastLevel: null,
@@ -794,12 +824,14 @@ function loadProgress() {
     const unlockedVis = Array.isArray(data.unlockedVis) ? data.unlockedVis : [];
     const unlockedShuffle = Array.isArray(data.unlockedShuffle) ? data.unlockedShuffle : [];
     const unlockedMeaning = Array.isArray(data.unlockedMeaning) ? data.unlockedMeaning : [];
+    const unlockedVoice = Array.isArray(data.unlockedVoice) ? data.unlockedVoice : [];
     return {
       unlocked: new Set(unlocked),
       unlockedImage: new Set(unlockedImage),
       unlockedVis: new Set(unlockedVis),
       unlockedShuffle: new Set(unlockedShuffle),
       unlockedMeaning: new Set(unlockedMeaning),
+      unlockedVoice: new Set(unlockedVoice),
       highscores: data.highscores && typeof data.highscores === "object" ? data.highscores : {},
       highscoresImage:
         data.highscoresImage && typeof data.highscoresImage === "object"
@@ -816,6 +848,10 @@ function loadProgress() {
       highscoresMeaning:
         data.highscoresMeaning && typeof data.highscoresMeaning === "object"
           ? data.highscoresMeaning
+          : {},
+      highscoresVoice:
+        data.highscoresVoice && typeof data.highscoresVoice === "object"
+          ? data.highscoresVoice
           : {},
       reviewLog: Array.isArray(data.reviewLog)
         ? data.reviewLog.slice(-MAX_REVIEW_LOG_ENTRIES)
@@ -840,11 +876,13 @@ function saveProgress() {
         unlockedVis: Array.from(progress.unlockedVis ?? []),
         unlockedShuffle: Array.from(progress.unlockedShuffle ?? []),
         unlockedMeaning: Array.from(progress.unlockedMeaning ?? []),
+        unlockedVoice: Array.from(progress.unlockedVoice ?? []),
         highscores: progress.highscores,
         highscoresImage: progress.highscoresImage,
         highscoresVis: progress.highscoresVis,
         highscoresShuffle: progress.highscoresShuffle,
         highscoresMeaning: progress.highscoresMeaning,
+        highscoresVoice: progress.highscoresVoice,
         reviewLog: progress.reviewLog,
         reviewStats: progress.reviewStats,
         lastLevel: progress.lastLevel,
@@ -870,8 +908,12 @@ function buildWordPool(tones) {
   return pool;
 }
 
+function isMeaningLevelMode(mode = state.toneMode) {
+  return mode === "meaning" || mode === "voice";
+}
+
 function getLevelsForMode(mode = "numbers") {
-  return mode === "meaning" ? MEANING_LEVELS : LEVELS;
+  return isMeaningLevelMode(mode) ? MEANING_LEVELS : LEVELS;
 }
 
 function getLevelUnlockScore(level, mode = "numbers") {
@@ -880,6 +922,44 @@ function getLevelUnlockScore(level, mode = "numbers") {
 
 function getMeaningSetById(id) {
   return MEANING_TONE_SETS.find((set) => set.id === id) || null;
+}
+
+function getUnlockedSetForMode(mode = "numbers") {
+  if (mode === "images") {
+    return progress.unlockedImage;
+  }
+  if (mode === "vis") {
+    return progress.unlockedVis;
+  }
+  if (mode === "shuffle") {
+    return progress.unlockedShuffle;
+  }
+  if (mode === "meaning") {
+    return progress.unlockedMeaning;
+  }
+  if (mode === "voice") {
+    return progress.unlockedVoice;
+  }
+  return progress.unlocked;
+}
+
+function getHighscoresForMode(mode = state.toneMode) {
+  if (mode === "images") {
+    return progress.highscoresImage;
+  }
+  if (mode === "vis") {
+    return progress.highscoresVis;
+  }
+  if (mode === "shuffle") {
+    return progress.highscoresShuffle;
+  }
+  if (mode === "meaning") {
+    return progress.highscoresMeaning;
+  }
+  if (mode === "voice") {
+    return progress.highscoresVoice;
+  }
+  return progress.highscores;
 }
 
 function ensureBaseUnlocks() {
@@ -894,6 +974,11 @@ function ensureBaseUnlocks() {
   getLevelsForMode("meaning").forEach((level) => {
     if (getLevelUnlockScore(level, "meaning") === 0) {
       progress.unlockedMeaning.add(level.id);
+    }
+  });
+  getLevelsForMode("voice").forEach((level) => {
+    if (getLevelUnlockScore(level, "voice") === 0) {
+      progress.unlockedVoice.add(level.id);
     }
   });
 }
@@ -944,11 +1029,25 @@ function ensureBranchUnlocks() {
       saveProgress();
     }
   }
+  if (progress.unlockedVoice.has("4x")) {
+    let changed = false;
+    changed = unlockLevel("x1", "voice") || changed;
+    changed = unlockLevel("1-44-super-slow", "voice") || changed;
+    changed = unlockLevel("1-44-slow", "voice") || changed;
+    if (changed) {
+      saveProgress();
+    }
+  }
 }
 
 function preserveMeaningUnlockOrder() {
+  preserveSequentialUnlockOrder(progress.unlockedMeaning);
+  preserveSequentialUnlockOrder(progress.unlockedVoice);
+}
+
+function preserveSequentialUnlockOrder(unlockedSet) {
   const highestUnlockedIndex = MEANING_LEVELS.reduce(
-    (highest, level, index) => (progress.unlockedMeaning.has(level.id) ? index : highest),
+    (highest, level, index) => (unlockedSet.has(level.id) ? index : highest),
     -1
   );
   if (highestUnlockedIndex <= 0) {
@@ -957,8 +1056,8 @@ function preserveMeaningUnlockOrder() {
   let changed = false;
   for (let i = 0; i <= highestUnlockedIndex; i += 1) {
     const level = MEANING_LEVELS[i];
-    if (!progress.unlockedMeaning.has(level.id)) {
-      progress.unlockedMeaning.add(level.id);
+    if (!unlockedSet.has(level.id)) {
+      unlockedSet.add(level.id);
       changed = true;
     }
   }
@@ -981,6 +1080,9 @@ function normalizeProgress() {
   if (!progress.unlockedMeaning) {
     progress.unlockedMeaning = new Set();
   }
+  if (!progress.unlockedVoice) {
+    progress.unlockedVoice = new Set();
+  }
   if (progress.unlocked.has("1x-4x")) {
     progress.unlocked.delete("1x-4x");
     ["1x", "2x", "3x", "4x"].forEach((id) => progress.unlocked.add(id));
@@ -999,6 +1101,9 @@ function normalizeProgress() {
   }
   if (progress.unlockedMeaning.has("1-44-slow")) {
     progress.unlockedMeaning.add("1-44-super-slow");
+  }
+  if (progress.unlockedVoice.has("1-44-slow")) {
+    progress.unlockedVoice.add("1-44-super-slow");
   }
   if (progress.lastLevel === "1x-4x") {
     progress.lastLevel = "1x";
@@ -1035,6 +1140,11 @@ function normalizeProgress() {
       progress.unlockedMeaning.delete(id);
     }
   });
+  progress.unlockedVoice.forEach((id) => {
+    if (!validIds.has(id)) {
+      progress.unlockedVoice.delete(id);
+    }
+  });
   if (progress.lastLevel && !validIds.has(progress.lastLevel)) {
     progress.lastLevel = null;
   }
@@ -1049,6 +1159,9 @@ function normalizeProgress() {
   }
   if (!progress.highscoresMeaning || typeof progress.highscoresMeaning !== "object") {
     progress.highscoresMeaning = {};
+  }
+  if (!progress.highscoresVoice || typeof progress.highscoresVoice !== "object") {
+    progress.highscoresVoice = {};
   }
   if (!Array.isArray(progress.reviewLog)) {
     progress.reviewLog = [];
@@ -1076,16 +1189,7 @@ function getNextLevel(levelId, mode = "numbers") {
 }
 
 function unlockLevel(levelId, mode = "numbers") {
-  const unlockedSet =
-    mode === "images"
-      ? progress.unlockedImage
-      : mode === "vis"
-        ? progress.unlockedVis
-        : mode === "shuffle"
-          ? progress.unlockedShuffle
-          : mode === "meaning"
-            ? progress.unlockedMeaning
-          : progress.unlocked;
+  const unlockedSet = getUnlockedSetForMode(mode);
   if (unlockedSet.has(levelId)) {
     return false;
   }
@@ -1100,16 +1204,7 @@ function unlockUpToLevel(levelId, mode = "numbers") {
     return false;
   }
   let unlockedAny = false;
-  const unlockedSet =
-    mode === "images"
-      ? progress.unlockedImage
-      : mode === "vis"
-        ? progress.unlockedVis
-        : mode === "shuffle"
-          ? progress.unlockedShuffle
-          : mode === "meaning"
-            ? progress.unlockedMeaning
-          : progress.unlocked;
+  const unlockedSet = getUnlockedSetForMode(mode);
   for (let i = 0; i <= index; i += 1) {
     const level = levels[i];
     if (!unlockedSet.has(level.id)) {
@@ -1126,16 +1221,7 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
   if (index <= 0) {
     return true;
   }
-  const unlockedSet =
-    mode === "images"
-      ? progress.unlockedImage
-      : mode === "vis"
-        ? progress.unlockedVis
-        : mode === "shuffle"
-          ? progress.unlockedShuffle
-          : mode === "meaning"
-            ? progress.unlockedMeaning
-          : progress.unlocked;
+  const unlockedSet = getUnlockedSetForMode(mode);
   for (let i = 0; i < index; i += 1) {
     if (!unlockedSet.has(levels[i].id)) {
       return false;
@@ -1145,16 +1231,7 @@ function areAllPreviousUnlocked(levelId, mode = "numbers") {
 }
 
 function isLevelUnlocked(levelId, mode = "numbers") {
-  const unlockedSet =
-    mode === "images"
-      ? progress.unlockedImage
-      : mode === "vis"
-        ? progress.unlockedVis
-        : mode === "shuffle"
-          ? progress.unlockedShuffle
-          : mode === "meaning"
-            ? progress.unlockedMeaning
-          : progress.unlocked;
+  const unlockedSet = getUnlockedSetForMode(mode);
   return unlockedSet.has(levelId);
 }
 
@@ -1259,16 +1336,7 @@ function renderLevelOptions() {
 }
 
 function getHighScore(levelId) {
-  const highscores =
-    state.toneMode === "images"
-      ? progress.highscoresImage
-      : state.toneMode === "vis"
-        ? progress.highscoresVis
-        : state.toneMode === "shuffle"
-          ? progress.highscoresShuffle
-          : state.toneMode === "meaning"
-            ? progress.highscoresMeaning
-            : progress.highscores;
+  const highscores = getHighscoresForMode();
   return Number(highscores[levelId]) || 0;
 }
 
@@ -1282,7 +1350,7 @@ function getReviewItemKey(drop) {
 }
 
 function getMeaningEntryForTone(tones) {
-  if (!isMeaningMode()) {
+  if (!isMeaningFamilyMode()) {
     return null;
   }
   return ensureMeaningSet({ render: false }).entries.find((entry) => entry.tones === tones) || null;
@@ -1337,14 +1405,18 @@ function updateReviewStats(event) {
   stats.lastSelectedTones = event.selectedTones;
 }
 
-function recordReview(drop, outcome, { selectedTones = null, inputMethod = "unknown" } = {}) {
+function recordReview(
+  drop,
+  outcome,
+  { selectedTones = null, inputMethod = "unknown", voicePrediction = null } = {}
+) {
   if (!drop) {
     return;
   }
   drop.reviewAttemptCount = (drop.reviewAttemptCount || 0) + 1;
   const now = Date.now();
   const level = getLevelById(state.levelId);
-  const meaningSetScope = isMeaningMode()
+  const meaningSetScope = isMeaningFamilyMode()
     ? getMeaningSetsForLevel(level).map((set) => set.id)
     : null;
   const selectedMeaningEntry = selectedTones ? getMeaningEntryForTone(selectedTones) : null;
@@ -1365,6 +1437,9 @@ function recordReview(drop, outcome, { selectedTones = null, inputMethod = "unkn
     inputMethod,
     selectedTones,
     selectedMeaning: selectedMeaningEntry?.meaning ?? null,
+    predictionConfidence: voicePrediction?.confidence ?? null,
+    predictionMethod: voicePrediction?.method ?? null,
+    predictionScores: voicePrediction?.scores ?? null,
     expectedTones: drop.tones,
     itemKey: getReviewItemKey(drop),
     text: drop.text,
@@ -1417,6 +1492,7 @@ function configureToneModeButtons() {
   const shuffleButton = toneModeButtons[2];
   const visButton = toneModeButtons[3];
   const meaningButton = toneModeButtons[4];
+  const voiceButton = toneModeButtons[5];
   if (numbersButton) {
     numbersButton.dataset.mode = "numbers";
     numbersButton.textContent = "123";
@@ -1443,14 +1519,28 @@ function configureToneModeButtons() {
     meaningButton.setAttribute("aria-label", "Meanings");
     meaningButton.hidden = false;
   }
+  if (voiceButton) {
+    voiceButton.dataset.mode = "voice";
+    voiceButton.textContent = "Voice";
+    voiceButton.setAttribute("aria-label", "Voice");
+    voiceButton.hidden = false;
+  }
 }
 
 function isMeaningMode() {
   return state.toneMode === "meaning";
 }
 
+function isVoiceMode(mode = state.toneMode) {
+  return mode === "voice";
+}
+
+function isMeaningFamilyMode(mode = state.toneMode) {
+  return mode === "meaning" || mode === "voice";
+}
+
 function isImagePadMode(mode = state.toneMode) {
-  return mode === "images" || mode === "shuffle" || mode === "meaning";
+  return mode === "images" || mode === "shuffle" || isMeaningFamilyMode(mode);
 }
 
 function shuffledItems(items) {
@@ -1495,8 +1585,13 @@ function setMeaningSet(set, { render = true } = {}) {
   state.meaningSet = set;
   state.meaningPadOrder = shuffledItems(set.entries);
   state.meaningSetChangeAt = 0;
+  state.voiceModel = null;
+  state.voiceModelFamilyId = null;
   if (render) {
     renderImagePad();
+  }
+  if (isVoiceMode()) {
+    loadVoiceModelForCurrentSet();
   }
 }
 
@@ -1515,7 +1610,7 @@ function ensureMeaningSet({ render = true } = {}) {
 }
 
 function queueMeaningSetChange() {
-  if (!isMeaningMode() || getMeaningSetsForLevel().length <= 1 || drops.length) {
+  if (!isMeaningFamilyMode() || getMeaningSetsForLevel().length <= 1 || drops.length) {
     return;
   }
   state.meaningSetChangeAt = performance.now() + MEANING_SET_CHANGE_DELAY_MS;
@@ -1523,7 +1618,7 @@ function queueMeaningSetChange() {
 
 function maybeAdvanceMeaningSet(timestamp) {
   if (
-    !isMeaningMode() ||
+    !isMeaningFamilyMode() ||
     drops.length ||
     splashes.length ||
     reveals.length ||
@@ -1575,6 +1670,12 @@ function renderMeaningPad() {
       if (!state.useImagePad) {
         return;
       }
+      if (isVoiceMode()) {
+        if (!state.running) {
+          playToneSample(entry.tones);
+        }
+        return;
+      }
       if (state.running) {
         handleImageEntry(entry.tones);
         return;
@@ -1591,7 +1692,7 @@ function renderImagePad() {
     return;
   }
   imagePad.replaceChildren();
-  if (isMeaningMode()) {
+  if (isMeaningFamilyMode()) {
     renderMeaningPad();
     imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
     return;
@@ -1630,7 +1731,7 @@ function playToneSample(tones) {
   if (state.toneMode === "vis") {
     return;
   }
-  if (isMeaningMode()) {
+  if (isMeaningFamilyMode()) {
     const set = ensureMeaningSet();
     const entry = set.entries.find((candidate) => candidate.tones === tones);
     if (!entry) {
@@ -1670,10 +1771,616 @@ function getToneImage(tones) {
   return toneImageCache.get(tones);
 }
 
+async function ensureVoiceMic() {
+  if (state.voiceStream && state.voiceAudioContext && state.voiceAnalyser) {
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("This browser does not support microphone capture.");
+  }
+  state.voiceStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    },
+  });
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  state.voiceAudioContext = new AudioContextClass();
+  const source = state.voiceAudioContext.createMediaStreamSource(state.voiceStream);
+  state.voiceAnalyser = state.voiceAudioContext.createAnalyser();
+  state.voiceAnalyser.fftSize = 2048;
+  state.voiceAnalyser.smoothingTimeConstant = 0;
+  state.voiceAnalyserBuffer = new Float32Array(state.voiceAnalyser.fftSize);
+  source.connect(state.voiceAnalyser);
+}
+
+async function startVoiceInput() {
+  if (!isVoiceMode() || state.voiceListening) {
+    return;
+  }
+  state.voiceListening = true;
+  state.voiceFrames = [];
+  state.voiceLastAcceptedAt = 0;
+  try {
+    await loadVoiceModelForCurrentSet();
+    await ensureVoiceMic();
+    if (!state.running || !isVoiceMode()) {
+      stopVoiceInput();
+      return;
+    }
+    setStatus("Listening... say the word that matches a falling character.");
+    state.voiceCaptureTimer = window.setInterval(captureVoiceFrame, VOICE_FRAME_MS);
+    state.voicePredictTimer = window.setInterval(runVoicePrediction, VOICE_PREDICT_MS);
+  } catch (error) {
+    console.warn("Voice input unavailable", error);
+    state.voiceListening = false;
+    setStatus(`Voice unavailable: ${error.message || error}`);
+  }
+}
+
+function stopVoiceInput() {
+  if (state.voiceCaptureTimer) {
+    window.clearInterval(state.voiceCaptureTimer);
+    state.voiceCaptureTimer = null;
+  }
+  if (state.voicePredictTimer) {
+    window.clearInterval(state.voicePredictTimer);
+    state.voicePredictTimer = null;
+  }
+  if (state.voiceStream) {
+    state.voiceStream.getTracks().forEach((track) => track.stop());
+  }
+  state.voiceStream = null;
+  if (state.voiceAudioContext) {
+    state.voiceAudioContext.close().catch(() => {});
+  }
+  state.voiceAudioContext = null;
+  state.voiceAnalyser = null;
+  state.voiceAnalyserBuffer = null;
+  state.voiceFrames = [];
+  state.voiceListening = false;
+}
+
+function captureVoiceFrame() {
+  if (!state.voiceAnalyser || !state.voiceAnalyserBuffer || !state.voiceAudioContext) {
+    return;
+  }
+  state.voiceAnalyser.getFloatTimeDomainData(state.voiceAnalyserBuffer);
+  const estimate = estimatePitch(state.voiceAnalyserBuffer, state.voiceAudioContext.sampleRate);
+  const now = performance.now();
+  state.voiceFrames.push({
+    absoluteT: now,
+    t: 0,
+    pitchHz: estimate.pitchHz ? Math.round(estimate.pitchHz * 10) / 10 : null,
+    rms: Math.round(estimate.rms * 10000) / 10000,
+    clarity: Math.round(estimate.clarity * 1000) / 1000,
+  });
+  const oldest = now - VOICE_WINDOW_MS * 1.8;
+  while (state.voiceFrames.length && state.voiceFrames[0].absoluteT < oldest) {
+    state.voiceFrames.shift();
+  }
+}
+
+function getRecentVoiceFrames() {
+  const now = performance.now();
+  const recent = state.voiceFrames.filter((frame) => now - frame.absoluteT <= VOICE_WINDOW_MS);
+  if (!recent.length) {
+    return [];
+  }
+  const start = recent[0].absoluteT;
+  return recent.map((frame) => ({
+    t: Math.round(frame.absoluteT - start),
+    pitchHz: frame.pitchHz,
+    rms: frame.rms,
+    clarity: frame.clarity,
+  }));
+}
+
+async function loadVoiceModelForCurrentSet() {
+  const set = ensureMeaningSet({ render: false });
+  if (!set) {
+    state.voiceModel = null;
+    state.voiceModelFamilyId = null;
+    return;
+  }
+  if (state.voiceModelFamilyId === set.id && state.voiceModel) {
+    return;
+  }
+  if (state.voiceModelCache.has(set.id)) {
+    state.voiceModel = state.voiceModelCache.get(set.id);
+    state.voiceModelFamilyId = set.id;
+    return;
+  }
+  const model = await fetchVoiceModel(set);
+  state.voiceModelCache.set(set.id, model);
+  if (state.meaningSet?.id === set.id) {
+    state.voiceModel = model;
+    state.voiceModelFamilyId = set.id;
+  }
+}
+
+async function fetchVoiceModel(set) {
+  const url = `${SUPABASE_URL}/rest/v1/${VOICE_TABLE}?select=target_tone,pitch_features,status&syllable=eq.${encodeURIComponent(
+    set.id
+  )}&limit=400`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Supabase ${response.status}`);
+    }
+    const rows = await response.json();
+    return buildVoiceKnnModel(Array.isArray(rows) ? rows : [], set);
+  } catch (error) {
+    console.warn("Could not load voice model", error);
+    return buildVoiceKnnModel([], set);
+  }
+}
+
+function runVoicePrediction() {
+  if (!state.running || !isVoiceMode() || !drops.length) {
+    return;
+  }
+  const frames = getRecentVoiceFrames();
+  const prediction = predictVoiceTone(frames);
+  if (!prediction || prediction.method === "none") {
+    return;
+  }
+  const now = performance.now();
+  if (now - state.voiceLastAcceptedAt < VOICE_ACCEPT_COOLDOWN_MS) {
+    return;
+  }
+  const voicedCount = prediction.features?.voicedFrameCount || 0;
+  if (voicedCount < 7 || prediction.confidence < VOICE_MIN_CONFIDENCE) {
+    return;
+  }
+  state.voiceLastAcceptedAt = now;
+  state.voiceFrames = [];
+  handleVoiceEntry(prediction);
+}
+
+function handleVoiceEntry(prediction) {
+  const tones = prediction.tone;
+  const entry = ensureMeaningSet({ render: false }).entries.find((candidate) => candidate.tones === tones);
+  const match = findMatch(tones);
+  const label = entry ? `${entry.familyLabel}${tones}` : tones;
+  if (match) {
+    clearDrop(match, { selectedTones: tones, inputMethod: "voice", voicePrediction: prediction });
+    setStatus(`Heard ${label}.`);
+  } else {
+    recordIncorrectAnswer(tones, "voice", { voicePrediction: prediction });
+    setStatus(`Heard ${label}, but no matching drop.`);
+  }
+}
+
+function buildVoiceKnnModel(rows, set) {
+  const validTones = new Set(set.entries.map((entry) => entry.tones));
+  const samples = rows
+    .map((row) => ({
+      tone: String(row.target_tone),
+      vector: contourVector(row.pitch_features?.frames || []),
+    }))
+    .filter((sample) => validTones.has(sample.tone) && sample.vector);
+  const counts = countByTone(samples);
+  if (!samples.length) {
+    return { kind: "heuristic", counts, samples: [] };
+  }
+  const globalMedianPitch = median(
+    samples.map((sample) => sample.vector.medianPitchHz).filter(Number.isFinite)
+  );
+  const vectors = samples
+    .map((sample) => ({
+      tone: sample.tone,
+      vector: sample.vector,
+      values: vectorValues(sample.vector, globalMedianPitch),
+    }))
+    .filter((sample) => sample.values);
+  if (!vectors.length) {
+    return { kind: "heuristic", counts, samples: [] };
+  }
+  const stats = vectorStats(vectors.map((sample) => sample.values));
+  return {
+    kind: "knn",
+    counts,
+    globalMedianPitch,
+    stats,
+    samples: vectors.map((sample) => ({
+      tone: sample.tone,
+      values: standardizeVector(sample.values, stats),
+      contour: sample.vector.contour,
+    })),
+  };
+}
+
+function predictVoiceTone(frames) {
+  const vector = contourVector(frames);
+  if (!vector) {
+    return {
+      tone: "1",
+      confidence: 0,
+      method: "none",
+      scores: { "1": 0, "2": 0, "3": 0, "4": 0 },
+      reason: "Not enough voiced pitch frames.",
+    };
+  }
+  if (state.voiceModel?.kind === "knn") {
+    return predictWithVoiceKnn(vector, state.voiceModel);
+  }
+  return predictWithVoiceHeuristic(vector);
+}
+
+function predictWithVoiceKnn(vector, model) {
+  const values = vectorValues(vector, model.globalMedianPitch);
+  const standardized = standardizeVector(values, model.stats);
+  const rawScores = { "1": 0.001, "2": 0.001, "3": 0.001, "4": 0.001 };
+  const neighbors = model.samples
+    .map((sample) => {
+      const featureDistance = euclideanDistance(standardized, sample.values) / Math.sqrt(sample.values.length);
+      const contourDistance = dtwDistance(vector.contour, sample.contour);
+      return {
+        tone: sample.tone,
+        distance: contourDistance * 0.62 + featureDistance * 0.38,
+      };
+    })
+    .sort((a, b) => a.distance - b.distance);
+  const k = Math.min(7, neighbors.length);
+  neighbors.slice(0, k).forEach((neighbor, index) => {
+    const rankWeight = 1 - index / Math.max(1, k + 1);
+    rawScores[neighbor.tone] += rankWeight / Math.max(0.08, neighbor.distance);
+  });
+  const scores = normalizeScores(rawScores);
+  const tone = bestTone(scores);
+  return {
+    tone,
+    confidence: scores[tone],
+    method: "kNN contour",
+    scores,
+    features: vector,
+  };
+}
+
+function predictWithVoiceHeuristic(vector) {
+  const { slope, earlySlope, lateSlope, range, minPosition, end, start, meanRel } = vector;
+  const scores = {
+    "1": 0.35,
+    "2": 0.35,
+    "3": 0.35,
+    "4": 0.35,
+  };
+  if (Math.abs(slope) < 1.8 && range < 4.2) {
+    scores["1"] += 1.4;
+  }
+  if (slope > 1.8 && lateSlope > 0.7) {
+    scores["2"] += 1.35 + Math.min(1, slope / 8);
+  }
+  if (earlySlope < -1.2 && lateSlope > 0.8 && minPosition > 0.18 && minPosition < 0.82) {
+    scores["3"] += 1.65 + Math.min(1, range / 9);
+  }
+  if (slope < -2.2 && end < start - 1.5) {
+    scores["4"] += 1.45 + Math.min(1, Math.abs(slope) / 8);
+  }
+  if (meanRel > 1.4 && Math.abs(slope) < 3) {
+    scores["1"] += 0.35;
+  }
+  if (meanRel < -1.4 && range > 3) {
+    scores["3"] += 0.25;
+  }
+  const normalized = normalizeScores(scores);
+  const tone = bestTone(normalized);
+  return {
+    tone,
+    confidence: normalized[tone],
+    method: "contour heuristic",
+    scores: normalized,
+    features: vector,
+  };
+}
+
+function estimatePitch(buffer, sampleRate) {
+  let sumSquares = 0;
+  for (let i = 0; i < buffer.length; i += 1) {
+    sumSquares += buffer[i] * buffer[i];
+  }
+  const rms = Math.sqrt(sumSquares / buffer.length);
+  if (rms < 0.012) {
+    return { pitchHz: null, rms, clarity: 0 };
+  }
+
+  const minLag = Math.floor(sampleRate / 520);
+  const maxLag = Math.floor(sampleRate / 65);
+  const difference = new Float32Array(maxLag + 1);
+  for (let lag = 1; lag <= maxLag; lag += 1) {
+    let sum = 0;
+    for (let i = 0; i < buffer.length - maxLag; i += 1) {
+      const delta = buffer[i] - buffer[i + lag];
+      sum += delta * delta;
+    }
+    difference[lag] = sum;
+  }
+
+  const cmnd = new Float32Array(maxLag + 1);
+  cmnd[0] = 1;
+  let runningSum = 0;
+  for (let lag = 1; lag <= maxLag; lag += 1) {
+    runningSum += difference[lag];
+    cmnd[lag] = difference[lag] * lag / (runningSum || 1);
+  }
+
+  let bestLag = -1;
+  const threshold = 0.14;
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    if (cmnd[lag] < threshold) {
+      while (lag + 1 <= maxLag && cmnd[lag + 1] < cmnd[lag]) {
+        lag += 1;
+      }
+      bestLag = lag;
+      break;
+    }
+  }
+
+  if (bestLag === -1) {
+    let bestValue = Infinity;
+    for (let lag = minLag; lag <= maxLag; lag += 1) {
+      if (cmnd[lag] < bestValue) {
+        bestValue = cmnd[lag];
+        bestLag = lag;
+      }
+    }
+  }
+
+  const clarity = Math.max(0, Math.min(1, 1 - cmnd[bestLag]));
+  if (bestLag <= 0 || clarity < 0.55) {
+    return { pitchHz: null, rms, clarity };
+  }
+
+  const betterLag = parabolicLag(cmnd, bestLag);
+  const pitchHz = sampleRate / betterLag;
+  if (!Number.isFinite(pitchHz) || pitchHz < 65 || pitchHz > 520) {
+    return { pitchHz: null, rms, clarity };
+  }
+  return { pitchHz, rms, clarity };
+}
+
+function parabolicLag(values, index) {
+  if (index <= 0 || index >= values.length - 1) {
+    return index;
+  }
+  const previous = values[index - 1];
+  const current = values[index];
+  const next = values[index + 1];
+  const divisor = previous + next - 2 * current;
+  if (!divisor) {
+    return index;
+  }
+  return index + (previous - next) / (2 * divisor);
+}
+
+function contourVector(frames) {
+  const voiced = mainVoicedSegment(frames);
+  if (voiced.length < 5) {
+    return null;
+  }
+  const pitches = fixOctaveJumps(voiced.map((frame) => frame.pitchHz));
+  const medianPitchHz = median(pitches);
+  if (!medianPitchHz) {
+    return null;
+  }
+  const semitones = pitches.map((pitchHz) => 12 * Math.log2(pitchHz / medianPitchHz));
+  const smoothed = smoothValues(smoothValues(semitones));
+  const points = resampleValues(smoothed, 5);
+  const contour = resampleValues(smoothed, 20);
+  const minValue = Math.min(...smoothed);
+  const maxValue = Math.max(...smoothed);
+  const minIndex = smoothed.indexOf(minValue);
+  const maxIndex = smoothed.indexOf(maxValue);
+  const start = points[0];
+  const mid = points[2];
+  const end = points[4];
+  return {
+    medianPitchHz,
+    start,
+    q1: points[1],
+    mid,
+    q3: points[3],
+    end,
+    mean: mean(smoothed) ?? 0,
+    meanRel: 0,
+    slope: end - start,
+    earlySlope: mid - start,
+    lateSlope: end - mid,
+    range: maxValue - minValue,
+    minPosition: smoothed.length > 1 ? minIndex / (smoothed.length - 1) : 0,
+    maxPosition: smoothed.length > 1 ? maxIndex / (smoothed.length - 1) : 0,
+    voicedFrameCount: voiced.length,
+    contour,
+  };
+}
+
+function mainVoicedSegment(frames) {
+  const sorted = frames
+    .filter((frame) => frame.pitchHz && frame.pitchHz >= 65 && frame.pitchHz <= 520)
+    .filter((frame) => (frame.clarity ?? 0) >= 0.55)
+    .sort((a, b) => a.t - b.t);
+  if (!sorted.length) {
+    return [];
+  }
+  const maxRms = Math.max(...sorted.map((frame) => frame.rms || 0));
+  const rmsFloor = Math.max(0.014, maxRms * 0.18);
+  const voiced = sorted.filter((frame) => (frame.rms || 0) >= rmsFloor);
+  const groups = [];
+  voiced.forEach((frame) => {
+    const previousGroup = groups[groups.length - 1];
+    const previousFrame = previousGroup?.[previousGroup.length - 1];
+    if (!previousFrame || frame.t - previousFrame.t > 170) {
+      groups.push([frame]);
+    } else {
+      previousGroup.push(frame);
+    }
+  });
+  return groups
+    .sort((a, b) => segmentScore(b) - segmentScore(a))[0] || [];
+}
+
+function segmentScore(segment) {
+  const rmsTotal = segment.reduce((sum, frame) => sum + (frame.rms || 0), 0);
+  return segment.length * 0.65 + rmsTotal * 35;
+}
+
+function fixOctaveJumps(pitches) {
+  if (!pitches.length) {
+    return [];
+  }
+  const fixed = [pitches[0]];
+  for (let i = 1; i < pitches.length; i += 1) {
+    let pitch = pitches[i];
+    const previous = fixed[fixed.length - 1];
+    while (pitch / previous > 1.65) {
+      pitch /= 2;
+    }
+    while (previous / pitch > 1.65) {
+      pitch *= 2;
+    }
+    fixed.push(pitch);
+  }
+  return fixed;
+}
+
+function vectorValues(vector, globalMedianPitch = vector.medianPitchHz) {
+  if (!vector || !globalMedianPitch) {
+    return null;
+  }
+  const meanRel = 12 * Math.log2(vector.medianPitchHz / globalMedianPitch);
+  return [
+    vector.start,
+    vector.q1,
+    vector.mid,
+    vector.q3,
+    vector.end,
+    vector.slope,
+    vector.earlySlope,
+    vector.lateSlope,
+    vector.range,
+    vector.minPosition,
+    vector.maxPosition,
+    meanRel,
+  ];
+}
+
+function vectorStats(vectors) {
+  const dimensions = vectors[0]?.length || 0;
+  const means = Array.from({ length: dimensions }, (_, index) =>
+    mean(vectors.map((vector) => vector[index])) ?? 0
+  );
+  const stds = Array.from({ length: dimensions }, (_, index) => {
+    const variance =
+      mean(vectors.map((vector) => (vector[index] - means[index]) ** 2)) ?? 0;
+    return Math.sqrt(variance) || 1;
+  });
+  return { means, stds };
+}
+
+function standardizeVector(vector, stats) {
+  return vector.map((value, index) => (value - stats.means[index]) / stats.stds[index]);
+}
+
+function euclideanDistance(left, right) {
+  return Math.sqrt(
+    left.reduce((sum, value, index) => sum + (value - (right[index] ?? 0)) ** 2, 0)
+  );
+}
+
+function dtwDistance(left, right) {
+  if (!left?.length || !right?.length) {
+    return 99;
+  }
+  const width = right.length + 1;
+  const costs = new Float32Array((left.length + 1) * width);
+  costs.fill(Infinity);
+  costs[0] = 0;
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      const cost = Math.abs(left[i - 1] - right[j - 1]);
+      const index = i * width + j;
+      costs[index] =
+        cost +
+        Math.min(
+          costs[(i - 1) * width + j],
+          costs[i * width + j - 1],
+          costs[(i - 1) * width + j - 1]
+        );
+    }
+  }
+  return costs[left.length * width + right.length] / (left.length + right.length);
+}
+
+function smoothValues(values) {
+  return values.map((value, index) => {
+    const window = values.slice(Math.max(0, index - 1), Math.min(values.length, index + 2));
+    return median(window) ?? value;
+  });
+}
+
+function resampleValues(values, count) {
+  if (values.length === 1) {
+    return Array.from({ length: count }, () => values[0]);
+  }
+  return Array.from({ length: count }, (_, index) => {
+    const position = (index / (count - 1)) * (values.length - 1);
+    const low = Math.floor(position);
+    const high = Math.min(values.length - 1, Math.ceil(position));
+    const mix = position - low;
+    return values[low] * (1 - mix) + values[high] * mix;
+  });
+}
+
+function normalizeScores(scores) {
+  const total = Object.values(scores).reduce((sum, value) => sum + Math.max(0, value), 0) || 1;
+  return Object.fromEntries(
+    Object.entries(scores).map(([tone, value]) => [tone, Math.max(0, value) / total])
+  );
+}
+
+function bestTone(scores) {
+  return Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] || "1";
+}
+
+function countByTone(samples) {
+  return samples.reduce((counts, sample) => {
+    counts[sample.tone] = (counts[sample.tone] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function mean(values) {
+  if (!values.length) {
+    return null;
+  }
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+}
+
+function median(values) {
+  const clean = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!clean.length) {
+    return null;
+  }
+  const middle = Math.floor(clean.length / 2);
+  return clean.length % 2
+    ? clean[middle]
+    : (clean[middle - 1] + clean[middle]) / 2;
+}
+
 function setToneMode(mode, { persist = true } = {}) {
   const normalized = normalizeToneMode(mode);
   if (progress.toneMode === normalized && state.toneMode === normalized) {
     return;
+  }
+  if (state.toneMode === "voice" && normalized !== "voice") {
+    stopVoiceInput();
   }
   progress.toneMode = normalized;
   state.toneMode = normalized;
@@ -1682,13 +2389,14 @@ function setToneMode(mode, { persist = true } = {}) {
   state.useVisDrops = normalized === "vis";
   gameRoot?.classList.toggle("game--image-mode", state.useImagePad);
   gameRoot?.classList.toggle("game--vis-mode", state.useVisDrops);
-  gameRoot?.classList.toggle("game--meaning-mode", normalized === "meaning");
+  gameRoot?.classList.toggle("game--meaning-mode", isMeaningFamilyMode(normalized));
+  gameRoot?.classList.toggle("game--voice-mode", normalized === "voice");
   if (state.useImagePad) {
     toneInput.value = "";
     clearInputTimer();
     if (normalized === "shuffle") {
       shuffleImagePadOrder();
-    } else if (normalized === "meaning") {
+    } else if (isMeaningFamilyMode(normalized)) {
       setMeaningSet(pickMeaningSetForLevel(getLevelById(state.levelId), state.meaningSet?.id));
     } else {
       state.imagePadOrder = IMAGE_PAD_TONES.slice();
@@ -1730,7 +2438,7 @@ function setLevel(levelId, { announce = true } = {}) {
   state.wordPool = level.wordPool;
   state.speedScale = level.speedScale ?? 1;
   state.spawnScale = level.spawnScale ?? 1;
-  if (isMeaningMode()) {
+  if (isMeaningFamilyMode()) {
     setMeaningSet(pickMeaningSetForLevel(level, state.meaningSet?.id));
   }
   progress.lastLevel = level.id;
@@ -1764,7 +2472,7 @@ function speak(text, { force = false } = {}) {
   if (!window.speechSynthesis) {
     return;
   }
-  if (state.toneMode === "vis") {
+  if (state.toneMode === "vis" || (isVoiceMode() && state.running)) {
     return;
   }
   const now = performance.now();
@@ -2176,6 +2884,9 @@ function getToneModeLabel() {
   if (state.toneMode === "meaning") {
     return "meanings";
   }
+  if (state.toneMode === "voice") {
+    return "words";
+  }
   if (state.toneMode === "vis") {
     return "numbers";
   }
@@ -2191,6 +2902,7 @@ function formatLevelLabel(label) {
 
 function updateToneLabels() {
   const usesImages = isImagePadMode();
+  const actionLabel = isVoiceMode() ? "say" : usesImages ? "tap" : "type";
   keypadButtons.forEach((button) => {
     const digit = button.dataset.digit;
     const label = formatToneDigit(digit);
@@ -2204,13 +2916,13 @@ function updateToneLabels() {
     toneModeLabel.textContent = getToneModeLabel();
   }
   if (toneModeAction) {
-    toneModeAction.textContent = usesImages ? "tap" : "type";
+    toneModeAction.textContent = actionLabel;
   }
   if (toneHeadingMode) {
     toneHeadingMode.textContent = getToneModeLabel();
   }
   if (toneHeadingAction) {
-    toneHeadingAction.textContent = usesImages ? "tap" : "type";
+    toneHeadingAction.textContent = actionLabel;
   }
   if (toneExample) {
     toneExample.textContent = state.useNumberLabels
@@ -2235,7 +2947,8 @@ function updateInputMode() {
     gameRoot.classList.toggle("game--keypad", state.useKeypad);
     gameRoot.classList.toggle("game--image-mode", state.useImagePad);
     gameRoot.classList.toggle("game--vis-mode", state.useVisDrops);
-    gameRoot.classList.toggle("game--meaning-mode", isMeaningMode());
+    gameRoot.classList.toggle("game--meaning-mode", isMeaningFamilyMode());
+    gameRoot.classList.toggle("game--voice-mode", isVoiceMode());
   }
   updateLevelCloseLabel();
   if (state.useKeypad) {
@@ -2286,7 +2999,7 @@ function updateInputEnabled() {
     button.disabled = !state.useImagePad;
   });
   if (replayBtn) {
-    replayBtn.disabled = state.toneMode === "vis";
+    replayBtn.disabled = state.toneMode === "vis" || (state.running && isVoiceMode());
   }
   updateInputVisibility();
   updateLevelPickerButton();
@@ -2386,7 +3099,7 @@ function difficulty() {
 }
 
 function getActiveWordPool() {
-  if (isMeaningMode()) {
+  if (isMeaningFamilyMode()) {
     return ensureMeaningSet().entries;
   }
   return state.wordPool;
@@ -2431,12 +3144,12 @@ function spawnDrop() {
     radius,
     size,
     renderMode: isVis ? "vis" : "raindrop",
-    image: isVis ? getToneImage(entry.tones) : isMeaningMode() ? getMeaningImage(entry) : null,
+    image: isVis ? getToneImage(entry.tones) : isMeaningFamilyMode() ? getMeaningImage(entry) : null,
     speed: speed + Math.random() * 20,
   };
   drops.push(drop);
   lastSpoken = drop;
-  if (!isVis) {
+  if (!isVis && !isVoiceMode()) {
     speak(drop.text);
   }
 }
@@ -2457,7 +3170,7 @@ function startGame() {
   ) {
     shuffleImagePadOrder();
   }
-  if (isMeaningMode()) {
+  if (isMeaningFamilyMode()) {
     ensureMeaningSet();
     state.meaningSetChangeAt = 0;
   }
@@ -2477,11 +3190,16 @@ function startGame() {
   setStatus(
     state.pauseUsed
       ? "Resumed. Paused runs do not count for highscores or unlocks."
-      : isMeaningMode()
+      : isVoiceMode()
+        ? "Drops incoming... say the matching word."
+        : isMeaningMode()
         ? "Drops incoming... tap the matching meaning."
         : "Drops incoming... type the tone numbers."
   );
   startBtn.textContent = "Pause";
+  if (isVoiceMode()) {
+    startVoiceInput();
+  }
   focusInput();
   requestAnimationFrame(tick);
 }
@@ -2489,6 +3207,7 @@ function startGame() {
 function pauseGame() {
   state.running = false;
   state.pauseUsed = true;
+  stopVoiceInput();
   gameRoot?.classList.remove("game--running");
   updateInputEnabled();
   clearInputTimer();
@@ -2511,6 +3230,7 @@ function resetGame() {
   state.lastFrame = 0;
   state.lastSpawn = 0;
   state.running = false;
+  stopVoiceInput();
   state.gameOver = false;
   state.finalReveal = false;
   state.pauseUsed = false;
@@ -2544,15 +3264,7 @@ function maybeUnlockNextLevel() {
   }
 
   const unlockedSet =
-    mode === "images"
-      ? progress.unlockedImage
-      : mode === "vis"
-        ? progress.unlockedVis
-        : mode === "shuffle"
-          ? progress.unlockedShuffle
-          : mode === "meaning"
-            ? progress.unlockedMeaning
-          : progress.unlocked;
+    getUnlockedSetForMode(mode);
   if (unlockedSet.has("4x")) {
     unlockedAny = unlockLevel("x1", mode) || unlockedAny;
     unlockedAny = unlockLevel("1-44-super-slow", mode) || unlockedAny;
@@ -2573,16 +3285,7 @@ function finalizeRun() {
     return;
   }
   let message = baseMessage;
-  const highscores =
-    state.toneMode === "images"
-      ? progress.highscoresImage
-      : state.toneMode === "vis"
-        ? progress.highscoresVis
-        : state.toneMode === "shuffle"
-          ? progress.highscoresShuffle
-          : state.toneMode === "meaning"
-            ? progress.highscoresMeaning
-        : progress.highscores;
+  const highscores = getHighscoresForMode();
   const previousHigh = getHighScore(state.levelId);
   const previousMedals = getMedalTierIds(previousHigh);
   let isHighScore = false;
@@ -2620,6 +3323,7 @@ function finalizeRun() {
 
 function endGame() {
   state.running = false;
+  stopVoiceInput();
   state.gameOver = true;
   state.finalReveal = false;
   clearInputTimer();
@@ -2701,6 +3405,7 @@ function startFinalReveal() {
   }
   state.finalReveal = true;
   state.running = false;
+  stopVoiceInput();
   clearInputTimer();
   gameRoot?.classList.remove("game--running");
   gameRoot?.classList.add("game--final-reveal");
@@ -2743,12 +3448,15 @@ function startFinalReveal() {
   finalRevealFrame = requestAnimationFrame(step);
 }
 
-function clearDrop(drop, { selectedTones = drop.tones, inputMethod = "unknown" } = {}) {
+function clearDrop(
+  drop,
+  { selectedTones = drop.tones, inputMethod = "unknown", voicePrediction = null } = {}
+) {
   const index = drops.indexOf(drop);
   if (index === -1) {
     return;
   }
-  recordReview(drop, "correct", { selectedTones, inputMethod });
+  recordReview(drop, "correct", { selectedTones, inputMethod, voicePrediction });
   drops.splice(index, 1);
   state.score += 1;
   updateHud();
@@ -2813,12 +3521,12 @@ function shouldTrackUnmatchedToneInput(tones) {
   return tones.length >= Math.min(maxLength, 2);
 }
 
-function recordIncorrectAnswer(selectedTones, inputMethod) {
+function recordIncorrectAnswer(selectedTones, inputMethod, { voicePrediction = null } = {}) {
   const target = findReviewTarget();
   if (!target) {
     return;
   }
-  recordReview(target, "incorrect", { selectedTones, inputMethod });
+  recordReview(target, "incorrect", { selectedTones, inputMethod, voicePrediction });
 }
 
 function drawDrop(drop) {
@@ -3034,7 +3742,7 @@ function tick(timestamp) {
 
   const { spawn } = difficulty();
   const waitingForMeaningSetChange =
-    isMeaningMode() && !drops.length && Boolean(state.meaningSetChangeAt);
+    isMeaningFamilyMode() && !drops.length && Boolean(state.meaningSetChangeAt);
   if (!waitingForMeaningSetChange && timestamp - state.lastSpawn > spawn) {
     spawnDrop();
     state.lastSpawn = timestamp;
@@ -3058,7 +3766,7 @@ function tick(timestamp) {
 }
 
 function handlePointer(event) {
-  if (state.toneMode === "vis") {
+  if (state.toneMode === "vis" || isVoiceMode()) {
     return;
   }
   if (!drops.length) {
@@ -3101,7 +3809,7 @@ toneInput.addEventListener("input", () => {
 });
 
 replayBtn.addEventListener("click", () => {
-  if (state.toneMode === "vis") {
+  if (state.toneMode === "vis" || (state.running && isVoiceMode())) {
     return;
   }
   if (!lastSpoken) {
@@ -3200,11 +3908,13 @@ const initialLevel =
     ? progress.lastLevel
     : LEVELS[0].id;
 const initialMode = getUnlockMode();
+const initialModeLevels = getLevelsForMode(initialMode);
 const initialModeLevel =
-  getLevelsForMode(initialMode).find((level) => isLevelUnlocked(level.id, initialMode)) ||
+  initialModeLevels.find((level) => isLevelUnlocked(level.id, initialMode)) ||
+  initialModeLevels[0] ||
   LEVELS[0];
 setLevel(
-  state.toneMode === "images" || state.toneMode === "vis" || state.toneMode === "meaning"
+  state.toneMode === "images" || state.toneMode === "vis" || isMeaningFamilyMode()
     ? initialModeLevel.id
     : initialLevel,
   {

@@ -354,6 +354,10 @@ img.medal {
   text-transform: uppercase;
 }
 
+.game--running.game--voice-mode .image-pad__btn {
+  cursor: default;
+}
+
 .backspace-btn {
   display: none;
   align-items: center;
