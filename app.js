@@ -555,6 +555,46 @@ const MEANING_TONE_SETS = [
       { text: "庆", tones: "4", sv: "fira", meaning: "celebrate", image: "meaning_images/celebrate.jpg" },
     ],
   },
+  {
+    id: "wan",
+    label: "wan",
+    entries: [
+      { text: "弯", tones: "1", sv: "böja; böjd", meaning: "bend", image: "meaning_images/bend.jpg" },
+      { text: "玩", tones: "2", sv: "leka; spela", meaning: "play", image: "meaning_images/play.jpg" },
+      { text: "晚", tones: "3", sv: "kväll; sen", meaning: "evening", image: "meaning_images/evening.jpg" },
+      { text: "万", tones: "4", sv: "tiotusen", meaning: "ten thousand", image: "meaning_images/ten-thousand.jpg" },
+    ],
+  },
+  {
+    id: "chuan",
+    label: "chuan",
+    entries: [
+      { text: "穿", tones: "1", sv: "ha på sig; bära", meaning: "wear", image: "meaning_images/wear.jpg" },
+      { text: "船", tones: "2", sv: "båt", meaning: "boat", image: "meaning_images/boat.jpg" },
+      { text: "喘", tones: "3", sv: "flämta; kippa efter andan", meaning: "gasp", image: "meaning_images/gasp.jpg" },
+      { text: "串", tones: "4", sv: "spett; rad", meaning: "skewer", image: "meaning_images/skewer.jpg" },
+    ],
+  },
+  {
+    id: "huan",
+    label: "huan",
+    entries: [
+      { text: "欢", tones: "1", sv: "glädje", meaning: "joy", image: "meaning_images/joy.jpg" },
+      { text: "环", tones: "2", sv: "ring; cirkel", meaning: "ring", image: "meaning_images/ring.jpg" },
+      { text: "缓", tones: "3", sv: "långsam; mildra", meaning: "slow", image: "meaning_images/slow.jpg" },
+      { text: "换", tones: "4", sv: "byta", meaning: "exchange", image: "meaning_images/exchange.jpg" },
+    ],
+  },
+  {
+    id: "cai",
+    label: "cai",
+    entries: [
+      { text: "猜", tones: "1", sv: "gissa", meaning: "guess", image: "meaning_images/guess.jpg" },
+      { text: "才", tones: "2", sv: "talang; först då", meaning: "talent", image: "meaning_images/talent.jpg" },
+      { text: "彩", tones: "3", sv: "färg; färgrik", meaning: "color", image: "meaning_images/color.jpg" },
+      { text: "菜", tones: "4", sv: "grönsak; maträtt", meaning: "vegetable", image: "meaning_images/vegetable.jpg" },
+    ],
+  },
 ];
 
 MEANING_TONE_SETS.forEach((set) => {

@@ -558,5 +558,117 @@
     "license": "CC0",
     "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
     "artist": "Roc0ast3r"
+  },
+  "bend": {
+    "file": "File:Bend in the road - geograph.org.uk - 8356323.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Bend_in_the_road_-_geograph.org.uk_-_8356323.jpg",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "artist": "Sandy Gemmill"
+  },
+  "play": {
+    "file": "File:Children playing on the beach.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Children_playing_on_the_beach.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Wilfredor"
+  },
+  "evening": {
+    "file": "File:A photo of evening sunset over the grass fields in Laaghalerveen; Drenthe, 2012.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:A_photo_of_evening_sunset_over_the_grass_fields_in_Laaghalerveen;_Drenthe,_2012.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Fons Heijnsbroek"
+  },
+  "ten-thousand": {
+    "file": "File:US 10000 square.png",
+    "source": "https://commons.wikimedia.org/wiki/File:US_10000_square.png",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Gb89.2"
+  },
+  "wear": {
+    "file": "File:A girl with white clothes; September 2014 (19).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:A_girl_with_white_clothes;_September_2014_(19).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Beryl_snw"
+  },
+  "boat": {
+    "file": "File:Fishing Boat Waves Devaneri Mahabalipuram Sep22 A7C 02637.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Fishing_Boat_Waves_Devaneri_Mahabalipuram_Sep22_A7C_02637.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Timothy A. Gonsalves"
+  },
+  "gasp": {
+    "file": "File:Out of breath (10677036685).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Out_of_breath_(10677036685).jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "US Air Force from USA"
+  },
+  "skewer": {
+    "file": "File:2005Street vendors with food carts of skewered foods 13.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:2005Street_vendors_with_food_carts_of_skewered_foods_13.jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Judgefloro"
+  },
+  "joy": {
+    "file": "File:Joy, Happiness, Russian girl smiling, Rostov-on-Don, Russia.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Joy,_Happiness,_Russian_girl_smiling,_Rostov-on-Don,_Russia.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "Vyacheslav Argenberg"
+  },
+  "ring": {
+    "file": "File:Silver ring and scorzoneras by ASQ.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Silver_ring_and_scorzoneras_by_ASQ.jpg",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "artist": "W.carter"
+  },
+  "slow": {
+    "file": "File:Pitcairn Slow Down Sign.png",
+    "source": "https://commons.wikimedia.org/wiki/File:Pitcairn_Slow_Down_Sign.png",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Mjb1981"
+  },
+  "exchange": {
+    "file": "File:S. C. Tripathi and Ahmad Waqar exchanging the signed documents at the first meeting of the India-Pakistan Joint Working Group on cooperation in transnational pipelines.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:S._C._Tripathi_and_Ahmad_Waqar_exchanging_the_signed_documents_at_the_first_meeting_of_the_India-Pakistan_Joint_Working_Group_on_cooperation_in_transnational_pipelines.jpg",
+    "license": "GODL-India",
+    "license_url": "https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf",
+    "artist": "Ministry of Petroleum and Natural Gas"
+  },
+  "guess": {
+    "file": "File:Symbol question mark.svg",
+    "source": "https://commons.wikimedia.org/wiki/File:Symbol_question_mark.svg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "PlaneSevenCarHouse"
+  },
+  "talent": {
+    "file": "File:2022 KATUSA's Got Talent Preliminary Show - 028.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:2022_KATUSA's_Got_Talent_Preliminary_Show_-_028.jpg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Sgt. Estevan Hidalgo"
+  },
+  "color": {
+    "file": "File:Macro of sharpened colored pencils arranged in a circle.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Macro_of_sharpened_colored_pencils_arranged_in_a_circle.jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Horia Varlan from Bucharest, Romania"
+  },
+  "vegetable": {
+    "file": "File:Basket of Vegetables (Unsplash).jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Basket_of_Vegetables_(Unsplash).jpg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "Markus Spiske markusspiske"
   }
 }
