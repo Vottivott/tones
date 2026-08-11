@@ -67,6 +67,13 @@ const VOICE_DEFAULT_MODEL_OPTIONS = {
   distanceFloor: 0.08,
 };
 
+const VOICE_GLOBAL_MODEL_KEY = "__global__";
+const VOICE_GLOBAL_MODEL_OPTIONS = {
+  k: 3,
+  contourWeight: 0.7,
+  distanceFloor: 0.04,
+};
+
 const VOICE_MODEL_OPTIONS_BY_SET = {
   ma: { k: 1, contourWeight: 0.35, distanceFloor: 0.04 },
   yi: { k: 3, contourWeight: 0.9, distanceFloor: 0.12 },
@@ -1986,10 +1993,50 @@ async function fetchVoiceModel(set) {
       throw new Error(`Supabase ${response.status}`);
     }
     const rows = await response.json();
-    return buildVoiceKnnModel(Array.isArray(rows) ? rows : [], set);
+    const model = buildVoiceKnnModel(Array.isArray(rows) ? rows : [], set);
+    if (model.kind === "knn") {
+      return model;
+    }
+    const globalModel = await fetchGlobalVoiceModel(set);
+    return globalModel.kind === "knn" ? globalModel : model;
   } catch (error) {
     console.warn("Could not load voice model", error);
-    return buildVoiceKnnModel([], set);
+    return fetchGlobalVoiceModel(set);
+  }
+}
+
+async function fetchGlobalVoiceModel(set) {
+  if (state.voiceModelCache.has(VOICE_GLOBAL_MODEL_KEY)) {
+    return state.voiceModelCache.get(VOICE_GLOBAL_MODEL_KEY);
+  }
+  const url = `${SUPABASE_URL}/rest/v1/${VOICE_TABLE}?select=target_tone,pitch_features,status&status=eq.uploaded&limit=2000`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Supabase ${response.status}`);
+    }
+    const rows = await response.json();
+    const model = buildVoiceKnnModel(Array.isArray(rows) ? rows : [], set, {
+      options: VOICE_GLOBAL_MODEL_OPTIONS,
+      methodLabel: "global kNN contour",
+      source: "global",
+    });
+    state.voiceModelCache.set(VOICE_GLOBAL_MODEL_KEY, model);
+    return model;
+  } catch (error) {
+    console.warn("Could not load global voice model", error);
+    const model = buildVoiceKnnModel([], set, {
+      options: VOICE_GLOBAL_MODEL_OPTIONS,
+      methodLabel: "global kNN contour",
+      source: "global",
+    });
+    state.voiceModelCache.set(VOICE_GLOBAL_MODEL_KEY, model);
+    return model;
   }
 }
 
@@ -2045,8 +2092,8 @@ function handleVoiceEntry(prediction) {
   }
 }
 
-function buildVoiceKnnModel(rows, set) {
-  const options = VOICE_MODEL_OPTIONS_BY_SET[set.id] || VOICE_DEFAULT_MODEL_OPTIONS;
+function buildVoiceKnnModel(rows, set, { options = null, methodLabel = "kNN contour", source = "set" } = {}) {
+  const modelOptions = options || VOICE_MODEL_OPTIONS_BY_SET[set.id] || VOICE_DEFAULT_MODEL_OPTIONS;
   const validTones = new Set(set.entries.map((entry) => entry.tones));
   const samples = rows
     .map((row) => ({
@@ -2056,7 +2103,7 @@ function buildVoiceKnnModel(rows, set) {
     .filter((sample) => validTones.has(sample.tone) && sample.vector);
   const counts = countByTone(samples);
   if (!samples.length) {
-    return { kind: "heuristic", counts, samples: [], options };
+    return { kind: "heuristic", counts, samples: [], options: modelOptions, methodLabel, source };
   }
   const globalMedianPitch = median(
     samples.map((sample) => sample.vector.medianPitchHz).filter(Number.isFinite)
@@ -2069,13 +2116,15 @@ function buildVoiceKnnModel(rows, set) {
     }))
     .filter((sample) => sample.values);
   if (!vectors.length) {
-    return { kind: "heuristic", counts, samples: [], options };
+    return { kind: "heuristic", counts, samples: [], options: modelOptions, methodLabel, source };
   }
   const stats = vectorStats(vectors.map((sample) => sample.values));
   return {
     kind: "knn",
     counts,
-    options,
+    options: modelOptions,
+    methodLabel,
+    source,
     globalMedianPitch,
     stats,
     samples: vectors.map((sample) => ({
@@ -2130,7 +2179,7 @@ function predictWithVoiceKnn(vector, model) {
   return {
     tone,
     confidence: scores[tone],
-    method: "kNN contour",
+    method: model.methodLabel || "kNN contour",
     scores,
     features: vector,
   };
