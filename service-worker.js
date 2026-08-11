@@ -1,9 +1,12 @@
-const CACHE_NAME = "tone-raindrops-v59";
+const CACHE_NAME = "tone-raindrops-v60";
 const ASSETS = [
   "./",
   "./index.html",
+  "./collector.html",
   "./styles.css",
+  "./collector.css",
   "./app.js",
+  "./collector.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
