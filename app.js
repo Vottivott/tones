@@ -1726,10 +1726,6 @@ function renderImagePad() {
     return;
   }
   imagePad.replaceChildren();
-  if (isVoiceMode()) {
-    imagePadButtons = [];
-    return;
-  }
   if (isMeaningFamilyMode()) {
     renderMeaningPad();
     imagePadButtons = Array.from(imagePad.querySelectorAll(".image-pad__btn"));
@@ -3147,7 +3143,7 @@ function updateInputEnabled() {
 }
 
 function updateInputVisibility() {
-  const showImages = state.useImagePad && !isVoiceMode();
+  const showImages = state.useImagePad && (!isVoiceMode() || !state.running);
   const hideTextInput = showImages || isVoiceMode();
   if (toneInput) {
     toneInput.hidden = hideTextInput;

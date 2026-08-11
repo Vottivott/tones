@@ -424,7 +424,7 @@ img.medal {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.game--voice-mode .input-panel__controls {
+.game--running.game--voice-mode .input-panel__controls {
   display: none;
 }
 
