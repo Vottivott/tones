@@ -60,6 +60,8 @@ const skipBtn = document.getElementById("skipBtn");
 const modelStatus = document.getElementById("modelStatus");
 const predictionResult = document.getElementById("predictionResult");
 const predictionScores = document.getElementById("predictionScores");
+const actualTonePanel = document.getElementById("actualTonePanel");
+const actualToneButtons = Array.from(document.querySelectorAll(".actual-tone-btn"));
 const countEls = {
   "1": document.getElementById("count1"),
   "2": document.getElementById("count2"),
@@ -82,6 +84,7 @@ const state = {
   targetQueue: [],
   zhVoice: null,
   model: null,
+  pendingPrediction: null,
   stats: loadStats(),
   sessionId: getSessionId(),
 };
@@ -128,6 +131,14 @@ skipBtn.addEventListener("click", () => {
   }
 });
 
+actualToneButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!state.busy) {
+      logPredictionFeedback(button.dataset.tone);
+    }
+  });
+});
+
 function getSessionId() {
   const key = "toneVoiceCollector.sessionId.v1";
   const existing = localStorage.getItem(key);
@@ -168,6 +179,10 @@ function renderTarget(target) {
   targetCharacter.textContent = target.character;
   targetPinyin.textContent = target.pinyin;
   targetMeaning.textContent = target.meaning;
+}
+
+function setActualTonePanelVisible(visible) {
+  actualTonePanel.hidden = !visible;
 }
 
 function shuffled(items) {
@@ -248,6 +263,8 @@ async function collectOne({ reuseTarget = false } = {}) {
 async function testPrediction() {
   state.busy = true;
   predictBtn.disabled = true;
+  setActualTonePanelVisible(false);
+  state.pendingPrediction = null;
   failedDownload.hidden = true;
   failedDownload.removeAttribute("href");
   try {
@@ -255,11 +272,13 @@ async function testPrediction() {
     setStatus("Recording test sample...");
     const sample = await recordAudio(state.currentTarget);
     const prediction = predictTone(sample.frames);
+    state.pendingPrediction = { sample, prediction };
     renderPrediction(prediction);
+    setActualTonePanelVisible(true);
     setStatus(
       `Predicted ${TARGETS_BY_TONE[prediction.tone]?.pinyin || `bao${prediction.tone}`} (${Math.round(
         prediction.confidence * 100
-      )}%).`
+      )}%). Mark what you actually said.`
     );
   } catch (error) {
     console.error(error);
@@ -267,6 +286,45 @@ async function testPrediction() {
   } finally {
     state.busy = false;
     predictBtn.disabled = false;
+  }
+}
+
+async function logPredictionFeedback(actualTone) {
+  if (!state.pendingPrediction) {
+    return;
+  }
+  const actualTarget = TARGETS_BY_TONE[actualTone];
+  if (!actualTarget) {
+    return;
+  }
+  state.busy = true;
+  actualToneButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  try {
+    const { sample, prediction } = state.pendingPrediction;
+    setStatus(`Logging actual ${actualTarget.pinyin}...`);
+    await uploadSample(sample, {
+      actualTarget,
+      status: "prediction_eval",
+      prediction,
+    });
+    state.pendingPrediction = null;
+    setActualTonePanelVisible(false);
+    setStatus(
+      prediction.tone === actualTone
+        ? `Logged: correct ${actualTarget.pinyin}.`
+        : `Logged: predicted bao${prediction.tone}, actual ${actualTarget.pinyin}.`
+    );
+    await refreshModel();
+  } catch (error) {
+    console.error(error);
+    setStatus(`Could not log feedback: ${error.message || error}`);
+  } finally {
+    actualToneButtons.forEach((button) => {
+      button.disabled = false;
+    });
+    state.busy = false;
   }
 }
 
@@ -410,35 +468,75 @@ function estimatePitch(buffer, sampleRate) {
 
   const minLag = Math.floor(sampleRate / 520);
   const maxLag = Math.floor(sampleRate / 65);
-  let bestLag = -1;
-  let bestCorrelation = 0;
-
-  for (let lag = minLag; lag <= maxLag; lag += 1) {
-    let correlation = 0;
-    let leftEnergy = 0;
-    let rightEnergy = 0;
-    for (let i = 0; i < buffer.length - lag; i += 1) {
-      const left = buffer[i];
-      const right = buffer[i + lag];
-      correlation += left * right;
-      leftEnergy += left * left;
-      rightEnergy += right * right;
+  const difference = new Float32Array(maxLag + 1);
+  for (let lag = 1; lag <= maxLag; lag += 1) {
+    let sum = 0;
+    for (let i = 0; i < buffer.length - maxLag; i += 1) {
+      const delta = buffer[i] - buffer[i + lag];
+      sum += delta * delta;
     }
-    const normalized = correlation / Math.sqrt(leftEnergy * rightEnergy || 1);
-    if (normalized > bestCorrelation) {
-      bestCorrelation = normalized;
+    difference[lag] = sum;
+  }
+
+  const cmnd = new Float32Array(maxLag + 1);
+  cmnd[0] = 1;
+  let runningSum = 0;
+  for (let lag = 1; lag <= maxLag; lag += 1) {
+    runningSum += difference[lag];
+    cmnd[lag] = difference[lag] * lag / (runningSum || 1);
+  }
+
+  let bestLag = -1;
+  const threshold = 0.14;
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    if (cmnd[lag] < threshold) {
+      while (lag + 1 <= maxLag && cmnd[lag + 1] < cmnd[lag]) {
+        lag += 1;
+      }
       bestLag = lag;
+      break;
     }
   }
 
-  if (bestLag <= 0 || bestCorrelation < 0.34) {
-    return { pitchHz: null, rms, clarity: Math.max(0, bestCorrelation) };
+  if (bestLag === -1) {
+    let bestValue = Infinity;
+    for (let lag = minLag; lag <= maxLag; lag += 1) {
+      if (cmnd[lag] < bestValue) {
+        bestValue = cmnd[lag];
+        bestLag = lag;
+      }
+    }
+  }
+
+  const clarity = Math.max(0, Math.min(1, 1 - cmnd[bestLag]));
+  if (bestLag <= 0 || clarity < 0.55) {
+    return { pitchHz: null, rms, clarity };
+  }
+
+  const betterLag = parabolicLag(cmnd, bestLag);
+  const pitchHz = sampleRate / betterLag;
+  if (!Number.isFinite(pitchHz) || pitchHz < 65 || pitchHz > 520) {
+    return { pitchHz: null, rms, clarity };
   }
   return {
-    pitchHz: sampleRate / bestLag,
+    pitchHz,
     rms,
-    clarity: bestCorrelation,
+    clarity,
   };
+}
+
+function parabolicLag(values, index) {
+  if (index <= 0 || index >= values.length - 1) {
+    return index;
+  }
+  const previous = values[index - 1];
+  const current = values[index];
+  const next = values[index + 1];
+  const divisor = previous + next - 2 * current;
+  if (!divisor) {
+    return index;
+  }
+  return index + (previous - next) / (2 * divisor);
 }
 
 function drawPitch(frames) {
@@ -484,10 +582,14 @@ function drawPitch(frames) {
   pitchCtx.stroke();
 }
 
-async function uploadSample(sample) {
+async function uploadSample(
+  sample,
+  { actualTarget = sample.target, status = "uploaded", prediction = null } = {}
+) {
   const ext = extensionForMime(sample.mimeType);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const storagePath = `${SYLLABLE}/${state.sessionId}/${timestamp}_${sample.target.pinyin}_${sample.id}.${ext}`;
+  const folder = status === "prediction_eval" ? "prediction-evals" : "training";
+  const storagePath = `${SYLLABLE}/${folder}/${state.sessionId}/${timestamp}_${actualTarget.pinyin}_${sample.id}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(storagePath, sample.blob, {
@@ -495,7 +597,7 @@ async function uploadSample(sample) {
       upsert: false,
     });
   if (uploadError) {
-    exposeFailedBlob(sample.blob, sample.target);
+    exposeFailedBlob(sample.blob, actualTarget);
     throw uploadError;
   }
 
@@ -503,10 +605,10 @@ async function uploadSample(sample) {
     session_id: state.sessionId,
     client_sample_id: sample.id,
     syllable: SYLLABLE,
-    target_tone: sample.target.tone,
-    character: sample.target.character,
-    pinyin: sample.target.pinyin,
-    meaning: sample.target.meaning,
+    target_tone: actualTarget.tone,
+    character: actualTarget.character,
+    pinyin: actualTarget.pinyin,
+    meaning: actualTarget.meaning,
     storage_bucket: BUCKET,
     storage_path: storagePath,
     mime_type: sample.mimeType,
@@ -515,6 +617,12 @@ async function uploadSample(sample) {
     audio_format: ext,
     sample_rate: sample.sampleRate,
     pitch_features: buildPitchFeatures(sample),
+    predicted_tone: prediction?.tone ?? null,
+    prediction_confidence: prediction ? Math.round(prediction.confidence * 1000) / 1000 : null,
+    prediction_method: prediction?.method ?? null,
+    prediction_scores: prediction?.scores ?? null,
+    prediction_features: prediction?.features ?? null,
+    is_prediction_correct: prediction ? prediction.tone === actualTarget.tone : null,
     user_agent: navigator.userAgent,
     device: {
       language: navigator.language,
@@ -527,6 +635,7 @@ async function uploadSample(sample) {
         height: window.screen?.height || null,
       },
     },
+    status,
   };
 
   const { error: insertError } = await supabase.from(TABLE).insert(metadata);
@@ -557,13 +666,13 @@ async function refreshModel() {
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("target_tone,pinyin,pitch_features")
+      .select("target_tone,pinyin,pitch_features,status")
       .eq("syllable", SYLLABLE)
       .limit(400);
     if (error) {
       throw error;
     }
-    state.model = buildCentroidModel(data || []);
+    state.model = buildKnnModel(data || []);
     renderModelStatus();
   } catch (error) {
     console.warn("Could not load Supabase training data", error);
@@ -573,7 +682,7 @@ async function refreshModel() {
   }
 }
 
-function buildCentroidModel(rows) {
+function buildKnnModel(rows) {
   const samples = rows
     .map((row) => ({
       tone: String(row.target_tone),
@@ -581,8 +690,7 @@ function buildCentroidModel(rows) {
     }))
     .filter((sample) => TARGETS_BY_TONE[sample.tone] && sample.vector);
   const counts = countByTone(samples);
-  const hasEnoughData = TARGETS.every((target) => (counts[target.tone] || 0) >= 3);
-  if (!hasEnoughData) {
+  if (!samples.length) {
     return {
       kind: "heuristic",
       samples,
@@ -596,37 +704,38 @@ function buildCentroidModel(rows) {
   const vectors = samples
     .map((sample) => ({
       tone: sample.tone,
+      vector: sample.vector,
       values: vectorValues(sample.vector, globalMedianPitch),
     }))
     .filter((sample) => sample.values);
+  if (!vectors.length) {
+    return {
+      kind: "heuristic",
+      samples,
+      counts,
+    };
+  }
   const stats = vectorStats(vectors.map((sample) => sample.values));
-  const standardized = vectors.map((sample) => ({
-    tone: sample.tone,
-    values: standardizeVector(sample.values, stats),
-  }));
-  const centroids = {};
-  TARGETS.forEach((target) => {
-    const toneVectors = standardized
-      .filter((sample) => sample.tone === target.tone)
-      .map((sample) => sample.values);
-    centroids[target.tone] = averageVector(toneVectors);
-  });
   return {
-    kind: "centroid",
+    kind: "knn",
     counts,
     globalMedianPitch,
     stats,
-    centroids,
+    samples: vectors.map((sample) => ({
+      tone: sample.tone,
+      values: standardizeVector(sample.values, stats),
+      contour: sample.vector.contour,
+    })),
   };
 }
 
 function renderModelStatus() {
-  if (!state.model || state.model.kind !== "centroid") {
+  if (!state.model || state.model.kind !== "knn") {
     const counts = state.model?.counts || {};
     modelStatus.textContent = `Using fallback contour heuristic. Readable samples: ${formatCounts(counts)}.`;
     return;
   }
-  modelStatus.textContent = `Using Supabase-trained model. Samples: ${formatCounts(state.model.counts)}.`;
+  modelStatus.textContent = `Using kNN contour model. Samples: ${formatCounts(state.model.counts)}.`;
 }
 
 function formatCounts(counts) {
@@ -651,30 +760,38 @@ function predictTone(frames) {
       reason: "Not enough voiced pitch frames.",
     };
   }
-  if (state.model?.kind === "centroid") {
-    return predictWithCentroids(vector, state.model);
+  if (state.model?.kind === "knn") {
+    return predictWithKnn(vector, state.model);
   }
   return predictWithHeuristic(vector);
 }
 
-function predictWithCentroids(vector, model) {
+function predictWithKnn(vector, model) {
   const values = vectorValues(vector, model.globalMedianPitch);
   const standardized = standardizeVector(values, model.stats);
-  const distances = {};
-  TARGETS.forEach((target) => {
-    distances[target.tone] = euclideanDistance(standardized, model.centroids[target.tone]);
-  });
-  const maxDistance = Math.max(...Object.values(distances));
   const rawScores = {};
-  TARGETS.forEach((target) => {
-    rawScores[target.tone] = Math.max(0.001, maxDistance - distances[target.tone] + 0.001);
+  TARGETS.forEach((target) => { rawScores[target.tone] = 0.001; });
+  const neighbors = model.samples
+    .map((sample) => {
+      const featureDistance = euclideanDistance(standardized, sample.values) / Math.sqrt(sample.values.length);
+      const contourDistance = dtwDistance(vector.contour, sample.contour);
+      return {
+        tone: sample.tone,
+        distance: contourDistance * 0.62 + featureDistance * 0.38,
+      };
+    })
+    .sort((a, b) => a.distance - b.distance);
+  const k = Math.min(7, neighbors.length);
+  neighbors.slice(0, k).forEach((neighbor, index) => {
+    const rankWeight = 1 - index / Math.max(1, k + 1);
+    rawScores[neighbor.tone] += rankWeight / Math.max(0.08, neighbor.distance);
   });
   const scores = normalizeScores(rawScores);
   const tone = bestTone(scores);
   return {
     tone,
     confidence: scores[tone],
-    method: "dataset centroid",
+    method: "kNN contour",
     scores,
     features: vector,
   };
@@ -720,21 +837,19 @@ function predictWithHeuristic(vector) {
 }
 
 function contourVector(frames) {
-  const voiced = frames
-    .filter((frame) => frame.pitchHz && frame.pitchHz >= 65 && frame.pitchHz <= 520)
-    .filter((frame) => (frame.clarity ?? 1) >= 0.33)
-    .sort((a, b) => a.t - b.t);
+  const voiced = mainVoicedSegment(frames);
   if (voiced.length < 5) {
     return null;
   }
-  const pitches = voiced.map((frame) => frame.pitchHz);
+  const pitches = fixOctaveJumps(voiced.map((frame) => frame.pitchHz));
   const medianPitchHz = median(pitches);
   if (!medianPitchHz) {
     return null;
   }
-  const semitones = voiced.map((frame) => 12 * Math.log2(frame.pitchHz / medianPitchHz));
-  const smoothed = smoothValues(semitones);
+  const semitones = pitches.map((pitchHz) => 12 * Math.log2(pitchHz / medianPitchHz));
+  const smoothed = smoothValues(smoothValues(semitones));
   const points = resampleValues(smoothed, 5);
+  const contour = resampleValues(smoothed, 20);
   const minValue = Math.min(...smoothed);
   const maxValue = Math.max(...smoothed);
   const minIndex = smoothed.indexOf(minValue);
@@ -761,7 +876,57 @@ function contourVector(frames) {
     minPosition: smoothed.length > 1 ? minIndex / (smoothed.length - 1) : 0,
     maxPosition: smoothed.length > 1 ? maxIndex / (smoothed.length - 1) : 0,
     voicedFrameCount: voiced.length,
+    contour,
   };
+}
+
+function mainVoicedSegment(frames) {
+  const sorted = frames
+    .filter((frame) => frame.pitchHz && frame.pitchHz >= 65 && frame.pitchHz <= 520)
+    .filter((frame) => (frame.clarity ?? 0) >= 0.55)
+    .sort((a, b) => a.t - b.t);
+  if (!sorted.length) {
+    return [];
+  }
+  const maxRms = Math.max(...sorted.map((frame) => frame.rms || 0));
+  const rmsFloor = Math.max(0.014, maxRms * 0.18);
+  const voiced = sorted.filter((frame) => (frame.rms || 0) >= rmsFloor);
+  const groups = [];
+  voiced.forEach((frame) => {
+    const previousGroup = groups[groups.length - 1];
+    const previousFrame = previousGroup?.[previousGroup.length - 1];
+    if (!previousFrame || frame.t - previousFrame.t > 170) {
+      groups.push([frame]);
+    } else {
+      previousGroup.push(frame);
+    }
+  });
+  return groups
+    .sort((a, b) => segmentScore(b) - segmentScore(a))[0] || [];
+}
+
+function segmentScore(segment) {
+  const rmsTotal = segment.reduce((sum, frame) => sum + (frame.rms || 0), 0);
+  return segment.length * 0.65 + rmsTotal * 35;
+}
+
+function fixOctaveJumps(pitches) {
+  if (!pitches.length) {
+    return [];
+  }
+  const fixed = [pitches[0]];
+  for (let i = 1; i < pitches.length; i += 1) {
+    let pitch = pitches[i];
+    const previous = fixed[fixed.length - 1];
+    while (pitch / previous > 1.65) {
+      pitch /= 2;
+    }
+    while (previous / pitch > 1.65) {
+      pitch *= 2;
+    }
+    fixed.push(pitch);
+  }
+  return fixed;
 }
 
 function vectorValues(vector, globalMedianPitch = vector.medianPitchHz) {
@@ -802,17 +967,34 @@ function standardizeVector(vector, stats) {
   return vector.map((value, index) => (value - stats.means[index]) / stats.stds[index]);
 }
 
-function averageVector(vectors) {
-  if (!vectors.length) {
-    return [];
-  }
-  return vectors[0].map((_, index) => mean(vectors.map((vector) => vector[index])) ?? 0);
-}
-
 function euclideanDistance(left, right) {
   return Math.sqrt(
     left.reduce((sum, value, index) => sum + (value - (right[index] ?? 0)) ** 2, 0)
   );
+}
+
+function dtwDistance(left, right) {
+  if (!left?.length || !right?.length) {
+    return 99;
+  }
+  const width = right.length + 1;
+  const costs = new Float32Array((left.length + 1) * width);
+  costs.fill(Infinity);
+  costs[0] = 0;
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      const cost = Math.abs(left[i - 1] - right[j - 1]);
+      const index = i * width + j;
+      costs[index] =
+        cost +
+        Math.min(
+          costs[(i - 1) * width + j],
+          costs[i * width + j - 1],
+          costs[(i - 1) * width + j - 1]
+        );
+    }
+  }
+  return costs[left.length * width + right.length] / (left.length + right.length);
 }
 
 function smoothValues(values) {

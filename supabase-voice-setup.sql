@@ -40,10 +40,18 @@ create table if not exists public.voice_samples (
   notes text
 );
 
+alter table public.voice_samples
+  add column if not exists predicted_tone text check (predicted_tone is null or predicted_tone in ('1', '2', '3', '4')),
+  add column if not exists prediction_confidence numeric,
+  add column if not exists prediction_method text,
+  add column if not exists prediction_scores jsonb,
+  add column if not exists prediction_features jsonb,
+  add column if not exists is_prediction_correct boolean;
+
 alter table public.voice_samples enable row level security;
 
 revoke select on public.voice_samples from anon;
-grant select (syllable, target_tone, pinyin, pitch_features, storage_bucket) on public.voice_samples to anon;
+grant select (syllable, target_tone, pinyin, pitch_features, storage_bucket, status) on public.voice_samples to anon;
 grant insert on public.voice_samples to anon;
 grant select, insert, update, delete on public.voice_samples to service_role;
 grant insert on storage.objects to anon;
