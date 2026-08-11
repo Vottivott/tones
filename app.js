@@ -46,6 +46,8 @@ const BIRD_TYPE_PAUSE_SHORT_MS = 90;
 const BIRD_TYPE_PAUSE_LONG_MS = 180;
 const BIRD_TYPE_PAUSE_NEWLINE_MS = 120;
 const MEANING_SET_CHANGE_DELAY_MS = 650;
+const MAX_REVIEW_LOG_ENTRIES = 5000;
+const REVIEW_LOG_VERSION = 1;
 const SKIP_33 = true;
 
 const HANNES_MODE = getHannesMode();
@@ -543,6 +545,7 @@ const state = {
   gameOver: false,
   pauseUsed: false,
   finalReveal: false,
+  runId: null,
   useKeypad: false,
   toneMode: progress.toneMode,
   useNumberLabels: progress.toneMode !== "symbols",
@@ -696,6 +699,8 @@ function loadProgress() {
     highscoresVis: {},
     highscoresShuffle: {},
     highscoresMeaning: {},
+    reviewLog: [],
+    reviewStats: {},
     lastLevel: null,
     toneMode: "numbers",
   };
@@ -733,6 +738,11 @@ function loadProgress() {
         data.highscoresMeaning && typeof data.highscoresMeaning === "object"
           ? data.highscoresMeaning
           : {},
+      reviewLog: Array.isArray(data.reviewLog)
+        ? data.reviewLog.slice(-MAX_REVIEW_LOG_ENTRIES)
+        : [],
+      reviewStats:
+        data.reviewStats && typeof data.reviewStats === "object" ? data.reviewStats : {},
       lastLevel: typeof data.lastLevel === "string" ? data.lastLevel : null,
       toneMode: normalizeToneMode(data.toneMode),
     };
@@ -756,6 +766,8 @@ function saveProgress() {
         highscoresVis: progress.highscoresVis,
         highscoresShuffle: progress.highscoresShuffle,
         highscoresMeaning: progress.highscoresMeaning,
+        reviewLog: progress.reviewLog,
+        reviewStats: progress.reviewStats,
         lastLevel: progress.lastLevel,
         toneMode: progress.toneMode,
       })
@@ -940,6 +952,14 @@ function normalizeProgress() {
   }
   if (!progress.highscoresMeaning || typeof progress.highscoresMeaning !== "object") {
     progress.highscoresMeaning = {};
+  }
+  if (!Array.isArray(progress.reviewLog)) {
+    progress.reviewLog = [];
+  } else if (progress.reviewLog.length > MAX_REVIEW_LOG_ENTRIES) {
+    progress.reviewLog = progress.reviewLog.slice(-MAX_REVIEW_LOG_ENTRIES);
+  }
+  if (!progress.reviewStats || typeof progress.reviewStats !== "object") {
+    progress.reviewStats = {};
   }
   progress.toneMode = normalizeToneMode(progress.toneMode);
   saveProgress();
@@ -1149,6 +1169,119 @@ function getHighScore(levelId) {
             ? progress.highscoresMeaning
             : progress.highscores;
   return Number(highscores[levelId]) || 0;
+}
+
+function getReviewItemKey(drop) {
+  return [
+    drop.familyId || "",
+    drop.text || "",
+    drop.tones || "",
+    drop.meaning || "",
+  ].join("|");
+}
+
+function getMeaningEntryForTone(tones) {
+  if (!isMeaningMode()) {
+    return null;
+  }
+  return ensureMeaningSet({ render: false }).entries.find((entry) => entry.tones === tones) || null;
+}
+
+function createReviewId(drop, now) {
+  const randomPart = Math.random().toString(36).slice(2, 8);
+  return `${state.runId || "idle"}-${drop.id}-${now}-${randomPart}`;
+}
+
+function updateReviewStats(event) {
+  const key = event.itemKey;
+  if (!progress.reviewStats[key]) {
+    progress.reviewStats[key] = {
+      text: event.text,
+      tones: event.tones,
+      familyId: event.familyId,
+      familyLabel: event.familyLabel,
+      meaning: event.meaning,
+      sv: event.sv,
+      attempts: 0,
+      correct: 0,
+      incorrect: 0,
+      missed: 0,
+      totalResponseMs: 0,
+      averageResponseMs: null,
+      currentCorrectStreak: 0,
+      lastReviewedAt: null,
+      lastOutcome: null,
+      lastSelectedTones: null,
+    };
+  }
+  const stats = progress.reviewStats[key];
+  stats.attempts += 1;
+  if (event.outcome === "correct") {
+    stats.correct += 1;
+    stats.currentCorrectStreak += 1;
+  } else {
+    stats.currentCorrectStreak = 0;
+    if (event.outcome === "missed") {
+      stats.missed += 1;
+    } else {
+      stats.incorrect += 1;
+    }
+  }
+  if (Number.isFinite(event.responseMs)) {
+    stats.totalResponseMs += event.responseMs;
+    stats.averageResponseMs = Math.round(stats.totalResponseMs / stats.attempts);
+  }
+  stats.lastReviewedAt = event.occurredAt;
+  stats.lastOutcome = event.outcome;
+  stats.lastSelectedTones = event.selectedTones;
+}
+
+function recordReview(drop, outcome, { selectedTones = null, inputMethod = "unknown" } = {}) {
+  if (!drop) {
+    return;
+  }
+  drop.reviewAttemptCount = (drop.reviewAttemptCount || 0) + 1;
+  const now = Date.now();
+  const level = getLevelById(state.levelId);
+  const selectedMeaningEntry = selectedTones ? getMeaningEntryForTone(selectedTones) : null;
+  const responseMs = Number.isFinite(drop.spawnedAtMs)
+    ? Math.max(0, Math.round(performance.now() - drop.spawnedAtMs))
+    : null;
+  const event = {
+    version: REVIEW_LOG_VERSION,
+    id: createReviewId(drop, now),
+    runId: state.runId,
+    dropId: drop.id,
+    occurredAt: new Date(now).toISOString(),
+    occurredAtMs: now,
+    shownAt: drop.spawnedAt ? new Date(drop.spawnedAt).toISOString() : null,
+    shownAtMs: drop.spawnedAt ?? null,
+    responseMs,
+    outcome,
+    inputMethod,
+    selectedTones,
+    selectedMeaning: selectedMeaningEntry?.meaning ?? null,
+    expectedTones: drop.tones,
+    itemKey: getReviewItemKey(drop),
+    text: drop.text,
+    tones: drop.tones,
+    sv: drop.sv,
+    meaning: drop.meaning ?? null,
+    familyId: drop.familyId ?? null,
+    familyLabel: drop.familyLabel ?? null,
+    mode: state.toneMode,
+    levelId: state.levelId,
+    levelLabel: level.label,
+    scoreBefore: state.score,
+    livesBefore: state.lives,
+    attemptNumberForDrop: drop.reviewAttemptCount,
+  };
+  progress.reviewLog.push(event);
+  if (progress.reviewLog.length > MAX_REVIEW_LOG_ENTRIES) {
+    progress.reviewLog.splice(0, progress.reviewLog.length - MAX_REVIEW_LOG_ENTRIES);
+  }
+  updateReviewStats(event);
+  saveProgress();
 }
 
 function updateHighScore() {
@@ -2071,10 +2204,12 @@ function handleToneValue(value) {
   }
   const match = findMatch(cleaned);
   if (match) {
-    clearDrop(match);
+    clearDrop(match, { selectedTones: cleaned, inputMethod: "typing" });
     toneInput.value = "";
     clearInputTimer();
     focusInput();
+  } else if (shouldTrackUnmatchedToneInput(cleaned)) {
+    recordIncorrectAnswer(cleaned, "typing");
   }
 }
 
@@ -2084,7 +2219,9 @@ function handleImageEntry(tones) {
   }
   const match = findMatch(tones);
   if (match) {
-    clearDrop(match);
+    clearDrop(match, { selectedTones: tones, inputMethod: "image-pad" });
+  } else {
+    recordIncorrectAnswer(tones, "image-pad");
   }
 }
 
@@ -2164,7 +2301,12 @@ function spawnDrop() {
     text: entry.text,
     tones: entry.tones,
     sv: entry.sv,
+    meaning: entry.meaning ?? null,
     familyId: entry.familyId ?? null,
+    familyLabel: entry.familyLabel ?? null,
+    spawnedAt: Date.now(),
+    spawnedAtMs: performance.now(),
+    reviewAttemptCount: 0,
     x,
     y,
     radius,
@@ -2206,6 +2348,7 @@ function startGame() {
   gameRoot?.classList.remove("game--final-reveal");
   state.running = true;
   state.gameOver = false;
+  state.runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   state.lastFrame = 0;
   state.lastSpawn = performance.now();
   gameRoot?.classList.add("game--running");
@@ -2481,11 +2624,12 @@ function startFinalReveal() {
   finalRevealFrame = requestAnimationFrame(step);
 }
 
-function clearDrop(drop) {
+function clearDrop(drop, { selectedTones = drop.tones, inputMethod = "unknown" } = {}) {
   const index = drops.indexOf(drop);
   if (index === -1) {
     return;
   }
+  recordReview(drop, "correct", { selectedTones, inputMethod });
   drops.splice(index, 1);
   state.score += 1;
   updateHud();
@@ -2499,6 +2643,7 @@ function missDrop(drop) {
   if (index === -1) {
     return;
   }
+  recordReview(drop, "missed", { selectedTones: null, inputMethod: "timeout" });
   drops.splice(index, 1);
   state.lives -= 1;
   updateHud();
@@ -2528,6 +2673,33 @@ function findMatch(tones) {
     return null;
   }
   return matches.reduce((closest, drop) => (drop.y > closest.y ? drop : closest));
+}
+
+function findReviewTarget() {
+  if (!drops.length) {
+    return null;
+  }
+  return drops.reduce((closest, drop) => (drop.y > closest.y ? drop : closest));
+}
+
+function shouldTrackUnmatchedToneInput(tones) {
+  if (!drops.length) {
+    return false;
+  }
+  const lengths = drops.map((drop) => drop.tones.length);
+  const maxLength = Math.max(...lengths);
+  if (maxLength > 1 && tones.length < 2) {
+    return false;
+  }
+  return tones.length >= Math.min(maxLength, 2);
+}
+
+function recordIncorrectAnswer(selectedTones, inputMethod) {
+  const target = findReviewTarget();
+  if (!target) {
+    return;
+  }
+  recordReview(target, "incorrect", { selectedTones, inputMethod });
 }
 
 function drawDrop(drop) {
