@@ -447,6 +447,7 @@ MEANING_TONE_SETS.forEach((set) => {
 });
 
 const SINGLE_TONES = ["1", "2", "3", "4"];
+const MEANING_REVIEW_GROUP_SIZE = 4;
 const DOUBLE_TONES = [
   "11",
   "12",
@@ -473,16 +474,6 @@ const DOUBLE_TONES_X1 = DOUBLE_TONES.filter((tone) => tone.endsWith("1"));
 const DOUBLE_TONES_X2 = DOUBLE_TONES.filter((tone) => tone.endsWith("2"));
 const DOUBLE_TONES_X3 = DOUBLE_TONES.filter((tone) => tone.endsWith("3"));
 const DOUBLE_TONES_X4 = DOUBLE_TONES.filter((tone) => tone.endsWith("4"));
-
-const MEANING_INTRO_LEVELS = MEANING_TONE_SETS.map((set, index) => ({
-  id: `meaning-${set.id}`,
-  label: set.label,
-  tones: SINGLE_TONES,
-  unlockScore: index === 0 ? 0 : 20,
-  speedScale: 1,
-  spawnScale: 1,
-  meaningSetId: set.id,
-}));
 
 const LEVELS = [
   { id: "1-4", label: "1-4", tones: SINGLE_TONES, unlockScore: 0, speedScale: 1, spawnScale: 1 },
@@ -519,8 +510,55 @@ const LEVELS = [
     spawnScale: 1,
   },
 ];
-const MEANING_LEVELS = [...MEANING_INTRO_LEVELS, ...LEVELS];
-const ALL_LEVELS = [...MEANING_INTRO_LEVELS, ...LEVELS];
+
+function buildMeaningLevels() {
+  const levels = [];
+  for (let start = 0; start < MEANING_TONE_SETS.length; start += MEANING_REVIEW_GROUP_SIZE) {
+    const group = MEANING_TONE_SETS.slice(start, start + MEANING_REVIEW_GROUP_SIZE);
+    const groupNumber = Math.floor(start / MEANING_REVIEW_GROUP_SIZE) + 1;
+
+    group.forEach((set) => {
+      levels.push({
+        id: `meaning-${set.id}`,
+        label: set.label,
+        tones: SINGLE_TONES,
+        unlockScore: levels.length === 0 ? 0 : 20,
+        speedScale: 1,
+        spawnScale: 1,
+        meaningSetId: set.id,
+      });
+    });
+
+    if (group.length > 1) {
+      levels.push({
+        id: `meaning-review-${groupNumber}`,
+        label: `Review ${groupNumber}`,
+        tones: SINGLE_TONES,
+        unlockScore: 20,
+        speedScale: 1,
+        spawnScale: 1,
+        meaningSetIds: group.map((set) => set.id),
+      });
+    }
+
+    const cumulative = MEANING_TONE_SETS.slice(0, start + group.length);
+    if (start > 0 && cumulative.length > group.length) {
+      levels.push({
+        id: `meaning-review-all-${groupNumber}`,
+        label: `All 1-${cumulative.length}`,
+        tones: SINGLE_TONES,
+        unlockScore: 20,
+        speedScale: 1,
+        spawnScale: 1,
+        meaningSetIds: cumulative.map((set) => set.id),
+      });
+    }
+  }
+  return levels;
+}
+
+const MEANING_LEVELS = buildMeaningLevels();
+const ALL_LEVELS = [...MEANING_LEVELS, ...LEVELS];
 
 ALL_LEVELS.forEach((level) => {
   level.wordPool = buildWordPool(level.tones);
@@ -533,6 +571,7 @@ if (TONE_MODE_OVERRIDE) {
 }
 normalizeProgress();
 ensureBaseUnlocks();
+preserveMeaningUnlockOrder();
 ensureBranchUnlocks();
 
 const drops = [];
@@ -796,9 +835,6 @@ function getLevelsForMode(mode = "numbers") {
 }
 
 function getLevelUnlockScore(level, mode = "numbers") {
-  if (mode === "meaning" && level.id === "1-4") {
-    return 20;
-  }
   return level.unlockScore;
 }
 
@@ -867,6 +903,27 @@ function ensureBranchUnlocks() {
     if (changed) {
       saveProgress();
     }
+  }
+}
+
+function preserveMeaningUnlockOrder() {
+  const highestUnlockedIndex = MEANING_LEVELS.reduce(
+    (highest, level, index) => (progress.unlockedMeaning.has(level.id) ? index : highest),
+    -1
+  );
+  if (highestUnlockedIndex <= 0) {
+    return;
+  }
+  let changed = false;
+  for (let i = 0; i <= highestUnlockedIndex; i += 1) {
+    const level = MEANING_LEVELS[i];
+    if (!progress.unlockedMeaning.has(level.id)) {
+      progress.unlockedMeaning.add(level.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveProgress();
   }
 }
 
@@ -1061,6 +1118,10 @@ function isLevelUnlocked(levelId, mode = "numbers") {
   return unlockedSet.has(levelId);
 }
 
+function isLevelSelectable(levelId, mode = "numbers") {
+  return isLevelUnlocked(levelId, mode) && getLevelsForMode(mode).some((level) => level.id === levelId);
+}
+
 function buildLevelMedals(container, score) {
   const hasPlatinum = score >= SECRET_MEDAL.score;
   MEDAL_TIERS.forEach((tier) => {
@@ -1144,7 +1205,7 @@ function renderLevelOptions() {
     levelSelect.appendChild(option);
   });
 
-  if (isLevelUnlocked(state.levelId, mode)) {
+  if (isLevelSelectable(state.levelId, mode)) {
     levelSelect.value = state.levelId;
   } else {
     const firstUnlocked = getLevelsForMode(mode).find((level) => isLevelUnlocked(level.id, mode));
@@ -1243,6 +1304,9 @@ function recordReview(drop, outcome, { selectedTones = null, inputMethod = "unkn
   drop.reviewAttemptCount = (drop.reviewAttemptCount || 0) + 1;
   const now = Date.now();
   const level = getLevelById(state.levelId);
+  const meaningSetScope = isMeaningMode()
+    ? getMeaningSetsForLevel(level).map((set) => set.id)
+    : null;
   const selectedMeaningEntry = selectedTones ? getMeaningEntryForTone(selectedTones) : null;
   const responseMs = Number.isFinite(drop.spawnedAtMs)
     ? Math.max(0, Math.round(performance.now() - drop.spawnedAtMs))
@@ -1272,6 +1336,7 @@ function recordReview(drop, outcome, { selectedTones = null, inputMethod = "unkn
     mode: state.toneMode,
     levelId: state.levelId,
     levelLabel: level.label,
+    meaningSetScope,
     scoreBefore: state.score,
     livesBefore: state.lives,
     attemptNumberForDrop: drop.reviewAttemptCount,
@@ -1357,16 +1422,30 @@ function shuffledItems(items) {
   return shuffled;
 }
 
-function pickMeaningSet(excludeId = null) {
+function pickMeaningSet(excludeId = null, sets = MEANING_TONE_SETS) {
+  const sourceSets = sets && sets.length ? sets : MEANING_TONE_SETS;
   const candidates =
-    MEANING_TONE_SETS.length > 1 && excludeId
-      ? MEANING_TONE_SETS.filter((set) => set.id !== excludeId)
-      : MEANING_TONE_SETS;
-  return candidates[Math.floor(Math.random() * candidates.length)] || MEANING_TONE_SETS[0];
+    sourceSets.length > 1 && excludeId
+      ? sourceSets.filter((set) => set.id !== excludeId)
+      : sourceSets;
+  return candidates[Math.floor(Math.random() * candidates.length)] || sourceSets[0];
 }
 
-function getFixedMeaningSetForLevel(level = getLevelById(state.levelId)) {
-  return level?.meaningSetId ? getMeaningSetById(level.meaningSetId) : null;
+function getMeaningSetsForLevel(level = getLevelById(state.levelId)) {
+  if (level?.meaningSetId) {
+    const set = getMeaningSetById(level.meaningSetId);
+    return set ? [set] : MEANING_TONE_SETS;
+  }
+  if (Array.isArray(level?.meaningSetIds) && level.meaningSetIds.length) {
+    const sets = level.meaningSetIds.map(getMeaningSetById).filter(Boolean);
+    return sets.length ? sets : MEANING_TONE_SETS;
+  }
+  return MEANING_TONE_SETS;
+}
+
+function pickMeaningSetForLevel(level = getLevelById(state.levelId), excludeId = null) {
+  const sets = getMeaningSetsForLevel(level);
+  return pickMeaningSet(sets.length > 1 ? excludeId : null, sets);
 }
 
 function setMeaningSet(set, { render = true } = {}) {
@@ -1382,21 +1461,21 @@ function setMeaningSet(set, { render = true } = {}) {
 }
 
 function ensureMeaningSet({ render = true } = {}) {
-  const fixedSet = getFixedMeaningSetForLevel();
-  if (fixedSet) {
-    if (state.meaningSet?.id !== fixedSet.id) {
-      setMeaningSet(fixedSet, { render });
+  const sets = getMeaningSetsForLevel();
+  if (sets.length === 1) {
+    if (state.meaningSet?.id !== sets[0].id) {
+      setMeaningSet(sets[0], { render });
     }
-    return fixedSet;
+    return sets[0];
   }
-  if (!state.meaningSet) {
-    setMeaningSet(pickMeaningSet(), { render });
+  if (!state.meaningSet || !sets.some((set) => set.id === state.meaningSet.id)) {
+    setMeaningSet(pickMeaningSet(null, sets), { render });
   }
   return state.meaningSet;
 }
 
 function queueMeaningSetChange() {
-  if (!isMeaningMode() || getFixedMeaningSetForLevel() || drops.length) {
+  if (!isMeaningMode() || getMeaningSetsForLevel().length <= 1 || drops.length) {
     return;
   }
   state.meaningSetChangeAt = performance.now() + MEANING_SET_CHANGE_DELAY_MS;
@@ -1409,7 +1488,7 @@ function maybeAdvanceMeaningSet(timestamp) {
     splashes.length ||
     reveals.length ||
     translations.length ||
-    getFixedMeaningSetForLevel() ||
+    getMeaningSetsForLevel().length <= 1 ||
     !state.meaningSetChangeAt
   ) {
     return;
@@ -1417,7 +1496,7 @@ function maybeAdvanceMeaningSet(timestamp) {
   if (timestamp < state.meaningSetChangeAt) {
     return;
   }
-  setMeaningSet(pickMeaningSet(state.meaningSet?.id));
+  setMeaningSet(pickMeaningSetForLevel(getLevelById(state.levelId), state.meaningSet?.id));
 }
 
 function getMeaningImage(entry) {
@@ -1570,7 +1649,7 @@ function setToneMode(mode, { persist = true } = {}) {
     if (normalized === "shuffle") {
       shuffleImagePadOrder();
     } else if (normalized === "meaning") {
-      setMeaningSet(getFixedMeaningSetForLevel() || pickMeaningSet(state.meaningSet?.id));
+      setMeaningSet(pickMeaningSetForLevel(getLevelById(state.levelId), state.meaningSet?.id));
     } else {
       state.imagePadOrder = IMAGE_PAD_TONES.slice();
       renderImagePad();
@@ -1580,7 +1659,7 @@ function setToneMode(mode, { persist = true } = {}) {
     saveProgress();
   }
   renderLevelOptions();
-  if (!isLevelUnlocked(state.levelId, getUnlockMode())) {
+  if (!isLevelSelectable(state.levelId, getUnlockMode())) {
     const firstUnlocked = getLevelsForMode(getUnlockMode()).find((level) =>
       isLevelUnlocked(level.id, getUnlockMode())
     );
@@ -1612,7 +1691,7 @@ function setLevel(levelId, { announce = true } = {}) {
   state.speedScale = level.speedScale ?? 1;
   state.spawnScale = level.spawnScale ?? 1;
   if (isMeaningMode()) {
-    setMeaningSet(getFixedMeaningSetForLevel(level) || pickMeaningSet(state.meaningSet?.id));
+    setMeaningSet(pickMeaningSetForLevel(level, state.meaningSet?.id));
   }
   progress.lastLevel = level.id;
   saveProgress();
@@ -3034,7 +3113,7 @@ if (levelSelect) {
   levelSelect.addEventListener("change", () => {
     const selected = levelSelect.value;
     const mode = getUnlockMode();
-    if (!isLevelUnlocked(selected, mode)) {
+    if (!isLevelSelectable(selected, mode)) {
       levelSelect.value = state.levelId;
       return;
     }
