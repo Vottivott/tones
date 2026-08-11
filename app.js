@@ -52,11 +52,30 @@ const MEANING_SET_CHANGE_DELAY_MS = 650;
 const MAX_REVIEW_LOG_ENTRIES = 5000;
 const REVIEW_LOG_VERSION = 1;
 const VOICE_FRAME_MS = 45;
-const VOICE_WINDOW_MS = 1300;
-const VOICE_PREDICT_MS = 620;
-const VOICE_ACCEPT_COOLDOWN_MS = 950;
+const VOICE_SILENCE_MS = 260;
+const VOICE_MAX_UTTERANCE_MS = 1500;
+const VOICE_PREDICT_MS = 90;
+const VOICE_ACCEPT_COOLDOWN_MS = 800;
+const VOICE_MIN_VOICED_FRAMES = 7;
 const VOICE_MIN_CONFIDENCE = 0.36;
 const SKIP_33 = true;
+
+const VOICE_DEFAULT_MODEL_OPTIONS = {
+  k: 5,
+  contourWeight: 0.8,
+  distanceFloor: 0.08,
+};
+
+const VOICE_MODEL_OPTIONS_BY_SET = {
+  ma: { k: 1, contourWeight: 0.35, distanceFloor: 0.04 },
+  yi: { k: 3, contourWeight: 0.9, distanceFloor: 0.12 },
+  shi: { k: 1, contourWeight: 0.9, distanceFloor: 0.04 },
+  ba: { k: 3, contourWeight: 0.8, distanceFloor: 0.04 },
+  bao: { k: 1, contourWeight: 0.35, distanceFloor: 0.04 },
+  qi: { k: 3, contourWeight: 0.35, distanceFloor: 0.04 },
+  tang: { k: 1, contourWeight: 0.35, distanceFloor: 0.04 },
+  yan: { k: 9, contourWeight: 0.35, distanceFloor: 0.04 },
+};
 
 const HANNES_MODE = getHannesMode();
 const TONE_MODE_OVERRIDE = getToneModeOverride();
@@ -650,6 +669,9 @@ const state = {
   voiceCaptureTimer: null,
   voicePredictTimer: null,
   voiceFrames: [],
+  voiceUtteranceFrames: [],
+  voiceIsSpeaking: false,
+  voiceLastVoiceAt: 0,
   voiceModel: null,
   voiceModelFamilyId: null,
   voiceModelCache: new Map(),
@@ -1801,6 +1823,9 @@ async function startVoiceInput() {
   }
   state.voiceListening = true;
   state.voiceFrames = [];
+  state.voiceUtteranceFrames = [];
+  state.voiceIsSpeaking = false;
+  state.voiceLastVoiceAt = 0;
   state.voiceLastAcceptedAt = 0;
   try {
     await loadVoiceModelForCurrentSet();
@@ -1839,6 +1864,9 @@ function stopVoiceInput() {
   state.voiceAnalyser = null;
   state.voiceAnalyserBuffer = null;
   state.voiceFrames = [];
+  state.voiceUtteranceFrames = [];
+  state.voiceIsSpeaking = false;
+  state.voiceLastVoiceAt = 0;
   state.voiceListening = false;
 }
 
@@ -1849,27 +1877,43 @@ function captureVoiceFrame() {
   state.voiceAnalyser.getFloatTimeDomainData(state.voiceAnalyserBuffer);
   const estimate = estimatePitch(state.voiceAnalyserBuffer, state.voiceAudioContext.sampleRate);
   const now = performance.now();
-  state.voiceFrames.push({
+  const frame = {
     absoluteT: now,
     t: 0,
     pitchHz: estimate.pitchHz ? Math.round(estimate.pitchHz * 10) / 10 : null,
     rms: Math.round(estimate.rms * 10000) / 10000,
     clarity: Math.round(estimate.clarity * 1000) / 1000,
-  });
-  const oldest = now - VOICE_WINDOW_MS * 1.8;
+  };
+  state.voiceFrames.push(frame);
+  const oldest = now - VOICE_MAX_UTTERANCE_MS * 1.8;
   while (state.voiceFrames.length && state.voiceFrames[0].absoluteT < oldest) {
     state.voiceFrames.shift();
   }
+
+  const isVoiced = Boolean(frame.pitchHz) && frame.rms >= 0.012 && frame.clarity >= 0.55;
+  if (isVoiced && !state.voiceIsSpeaking) {
+    state.voiceUtteranceFrames = [];
+    state.voiceIsSpeaking = true;
+  }
+  if (state.voiceIsSpeaking) {
+    state.voiceUtteranceFrames.push(frame);
+    const utteranceStart = state.voiceUtteranceFrames[0]?.absoluteT ?? now;
+    state.voiceUtteranceFrames = state.voiceUtteranceFrames.filter(
+      (candidate) => candidate.absoluteT >= utteranceStart &&
+        now - candidate.absoluteT <= VOICE_MAX_UTTERANCE_MS + VOICE_SILENCE_MS
+    );
+  }
+  if (isVoiced) {
+    state.voiceLastVoiceAt = now;
+  }
 }
 
-function getRecentVoiceFrames() {
-  const now = performance.now();
-  const recent = state.voiceFrames.filter((frame) => now - frame.absoluteT <= VOICE_WINDOW_MS);
-  if (!recent.length) {
+function normalizeVoiceFrames(frames) {
+  if (!frames.length) {
     return [];
   }
-  const start = recent[0].absoluteT;
-  return recent.map((frame) => ({
+  const start = frames[0].absoluteT;
+  return frames.map((frame) => ({
     t: Math.round(frame.absoluteT - start),
     pitchHz: frame.pitchHz,
     rms: frame.rms,
@@ -1903,7 +1947,7 @@ async function loadVoiceModelForCurrentSet() {
 async function fetchVoiceModel(set) {
   const url = `${SUPABASE_URL}/rest/v1/${VOICE_TABLE}?select=target_tone,pitch_features,status&syllable=eq.${encodeURIComponent(
     set.id
-  )}&limit=400`;
+  )}&status=eq.uploaded&limit=400`;
   try {
     const response = await fetch(url, {
       headers: {
@@ -1923,20 +1967,28 @@ async function fetchVoiceModel(set) {
 }
 
 function runVoicePrediction() {
-  if (!state.running || !isVoiceMode() || !drops.length) {
+  if (!state.running || !isVoiceMode() || !drops.length || !state.voiceIsSpeaking) {
     return;
   }
-  const frames = getRecentVoiceFrames();
+  const now = performance.now();
+  const firstFrameAt = state.voiceUtteranceFrames[0]?.absoluteT ?? now;
+  const silenceMs = now - state.voiceLastVoiceAt;
+  const durationMs = now - firstFrameAt;
+  if (silenceMs < VOICE_SILENCE_MS && durationMs < VOICE_MAX_UTTERANCE_MS) {
+    return;
+  }
+  const frames = normalizeVoiceFrames(state.voiceUtteranceFrames);
+  state.voiceUtteranceFrames = [];
+  state.voiceIsSpeaking = false;
   const prediction = predictVoiceTone(frames);
   if (!prediction || prediction.method === "none") {
     return;
   }
-  const now = performance.now();
   if (now - state.voiceLastAcceptedAt < VOICE_ACCEPT_COOLDOWN_MS) {
     return;
   }
   const voicedCount = prediction.features?.voicedFrameCount || 0;
-  if (voicedCount < 7 || prediction.confidence < VOICE_MIN_CONFIDENCE) {
+  if (voicedCount < VOICE_MIN_VOICED_FRAMES || prediction.confidence < VOICE_MIN_CONFIDENCE) {
     return;
   }
   state.voiceLastAcceptedAt = now;
@@ -1959,6 +2011,7 @@ function handleVoiceEntry(prediction) {
 }
 
 function buildVoiceKnnModel(rows, set) {
+  const options = VOICE_MODEL_OPTIONS_BY_SET[set.id] || VOICE_DEFAULT_MODEL_OPTIONS;
   const validTones = new Set(set.entries.map((entry) => entry.tones));
   const samples = rows
     .map((row) => ({
@@ -1968,7 +2021,7 @@ function buildVoiceKnnModel(rows, set) {
     .filter((sample) => validTones.has(sample.tone) && sample.vector);
   const counts = countByTone(samples);
   if (!samples.length) {
-    return { kind: "heuristic", counts, samples: [] };
+    return { kind: "heuristic", counts, samples: [], options };
   }
   const globalMedianPitch = median(
     samples.map((sample) => sample.vector.medianPitchHz).filter(Number.isFinite)
@@ -1981,12 +2034,13 @@ function buildVoiceKnnModel(rows, set) {
     }))
     .filter((sample) => sample.values);
   if (!vectors.length) {
-    return { kind: "heuristic", counts, samples: [] };
+    return { kind: "heuristic", counts, samples: [], options };
   }
   const stats = vectorStats(vectors.map((sample) => sample.values));
   return {
     kind: "knn",
     counts,
+    options,
     globalMedianPitch,
     stats,
     samples: vectors.map((sample) => ({
@@ -2015,6 +2069,7 @@ function predictVoiceTone(frames) {
 }
 
 function predictWithVoiceKnn(vector, model) {
+  const options = model.options || VOICE_DEFAULT_MODEL_OPTIONS;
   const values = vectorValues(vector, model.globalMedianPitch);
   const standardized = standardizeVector(values, model.stats);
   const rawScores = { "1": 0.001, "2": 0.001, "3": 0.001, "4": 0.001 };
@@ -2024,14 +2079,16 @@ function predictWithVoiceKnn(vector, model) {
       const contourDistance = dtwDistance(vector.contour, sample.contour);
       return {
         tone: sample.tone,
-        distance: contourDistance * 0.62 + featureDistance * 0.38,
+        distance:
+          contourDistance * options.contourWeight +
+          featureDistance * (1 - options.contourWeight),
       };
     })
     .sort((a, b) => a.distance - b.distance);
-  const k = Math.min(7, neighbors.length);
+  const k = Math.min(options.k, neighbors.length);
   neighbors.slice(0, k).forEach((neighbor, index) => {
     const rankWeight = 1 - index / Math.max(1, k + 1);
-    rawScores[neighbor.tone] += rankWeight / Math.max(0.08, neighbor.distance);
+    rawScores[neighbor.tone] += rankWeight / Math.max(options.distanceFloor, neighbor.distance);
   });
   const scores = normalizeScores(rawScores);
   const tone = bestTone(scores);
