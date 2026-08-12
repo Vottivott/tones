@@ -52,13 +52,14 @@ const MEANING_SET_CHANGE_DELAY_MS = 650;
 const MAX_REVIEW_LOG_ENTRIES = 5000;
 const REVIEW_LOG_VERSION = 1;
 const VOICE_FRAME_MS = 45;
-const VOICE_SILENCE_MS = 190;
+const VOICE_SILENCE_MS = 150;
 const VOICE_MAX_UTTERANCE_MS = 1500;
-const VOICE_PREDICT_MS = 60;
-const VOICE_ACCEPT_COOLDOWN_MS = 620;
-const VOICE_MIN_VOICED_FRAMES = 7;
+const VOICE_PREDICT_MS = 45;
+const VOICE_ACCEPT_COOLDOWN_MS = 500;
+const VOICE_MIN_VOICED_FRAMES = 6;
 const VOICE_MIN_CONFIDENCE = 0.36;
-const VOICE_EARLY_CONFIDENCE = 0.62;
+const VOICE_EARLY_CONFIDENCE = 0.58;
+const VOICE_EARLY_FAST_CONFIDENCE = 0.78;
 const VOICE_EARLY_STABLE_COUNT = 2;
 const VOICE_FEEDBACK_SUPPRESS_MS = 1700;
 const SKIP_33 = true;
@@ -2231,6 +2232,10 @@ function runVoicePrediction() {
     return;
   }
   if (!shouldFinalize) {
+    if (prediction.confidence >= VOICE_EARLY_FAST_CONFIDENCE) {
+      acceptVoicePrediction(prediction, now);
+      return;
+    }
     if (prediction.confidence < VOICE_EARLY_CONFIDENCE) {
       resetVoiceProvisionalPrediction();
       return;
