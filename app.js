@@ -52,12 +52,14 @@ const MEANING_SET_CHANGE_DELAY_MS = 650;
 const MAX_REVIEW_LOG_ENTRIES = 5000;
 const REVIEW_LOG_VERSION = 1;
 const VOICE_FRAME_MS = 45;
-const VOICE_SILENCE_MS = 260;
+const VOICE_SILENCE_MS = 190;
 const VOICE_MAX_UTTERANCE_MS = 1500;
-const VOICE_PREDICT_MS = 90;
-const VOICE_ACCEPT_COOLDOWN_MS = 800;
+const VOICE_PREDICT_MS = 60;
+const VOICE_ACCEPT_COOLDOWN_MS = 620;
 const VOICE_MIN_VOICED_FRAMES = 7;
 const VOICE_MIN_CONFIDENCE = 0.36;
+const VOICE_EARLY_CONFIDENCE = 0.62;
+const VOICE_EARLY_STABLE_COUNT = 2;
 const VOICE_FEEDBACK_SUPPRESS_MS = 1700;
 const SKIP_33 = true;
 
@@ -774,6 +776,8 @@ const state = {
   voiceLastAcceptedAt: 0,
   voiceLastStatusAt: 0,
   voiceFeedbackUntil: 0,
+  voiceProvisionalTone: null,
+  voiceProvisionalCount: 0,
   hannesMode: HANNES_MODE,
   imagePadOrder: [],
   meaningSet: null,
@@ -1963,6 +1967,7 @@ async function startVoiceInput() {
   state.voiceIsSpeaking = false;
   state.voiceLastVoiceAt = 0;
   state.voiceLastAcceptedAt = 0;
+  resetVoiceProvisionalPrediction();
   try {
     await loadVoiceModelForCurrentSet();
     await ensureVoiceMic();
@@ -2005,6 +2010,12 @@ function stopVoiceInput() {
   state.voiceLastVoiceAt = 0;
   state.voiceFeedbackUntil = 0;
   state.voiceListening = false;
+  resetVoiceProvisionalPrediction();
+}
+
+function resetVoiceProvisionalPrediction() {
+  state.voiceProvisionalTone = null;
+  state.voiceProvisionalCount = 0;
 }
 
 function clearVoiceCaptureState() {
@@ -2012,6 +2023,7 @@ function clearVoiceCaptureState() {
   state.voiceUtteranceFrames = [];
   state.voiceIsSpeaking = false;
   state.voiceLastVoiceAt = 0;
+  resetVoiceProvisionalPrediction();
 }
 
 function suppressVoiceFeedbackRecognition(durationMs = VOICE_FEEDBACK_SUPPRESS_MS) {
@@ -2205,25 +2217,51 @@ function runVoicePrediction() {
   const firstFrameAt = state.voiceUtteranceFrames[0]?.absoluteT ?? now;
   const silenceMs = now - state.voiceLastVoiceAt;
   const durationMs = now - firstFrameAt;
-  if (silenceMs < VOICE_SILENCE_MS && durationMs < VOICE_MAX_UTTERANCE_MS) {
+  if (now - state.voiceLastAcceptedAt < VOICE_ACCEPT_COOLDOWN_MS) {
     return;
   }
+  const shouldFinalize = silenceMs >= VOICE_SILENCE_MS || durationMs >= VOICE_MAX_UTTERANCE_MS;
   const frames = normalizeVoiceFrames(state.voiceUtteranceFrames);
-  state.voiceUtteranceFrames = [];
-  state.voiceIsSpeaking = false;
   const prediction = predictVoiceTone(frames);
   if (!prediction || prediction.method === "none") {
     return;
   }
-  if (now - state.voiceLastAcceptedAt < VOICE_ACCEPT_COOLDOWN_MS) {
-    return;
-  }
   const voicedCount = prediction.features?.voicedFrameCount || 0;
-  if (voicedCount < VOICE_MIN_VOICED_FRAMES || prediction.confidence < VOICE_MIN_CONFIDENCE) {
+  if (voicedCount < VOICE_MIN_VOICED_FRAMES) {
     return;
   }
+  if (!shouldFinalize) {
+    if (prediction.confidence < VOICE_EARLY_CONFIDENCE) {
+      resetVoiceProvisionalPrediction();
+      return;
+    }
+    if (state.voiceProvisionalTone === prediction.tone) {
+      state.voiceProvisionalCount += 1;
+    } else {
+      state.voiceProvisionalTone = prediction.tone;
+      state.voiceProvisionalCount = 1;
+    }
+    if (state.voiceProvisionalCount < VOICE_EARLY_STABLE_COUNT) {
+      return;
+    }
+    acceptVoicePrediction(prediction, now);
+    return;
+  }
+  resetVoiceProvisionalPrediction();
+  state.voiceUtteranceFrames = [];
+  state.voiceIsSpeaking = false;
+  if (prediction.confidence < VOICE_MIN_CONFIDENCE) {
+    return;
+  }
+  acceptVoicePrediction(prediction, now);
+}
+
+function acceptVoicePrediction(prediction, now = performance.now()) {
   state.voiceLastAcceptedAt = now;
   state.voiceFrames = [];
+  state.voiceUtteranceFrames = [];
+  state.voiceIsSpeaking = false;
+  resetVoiceProvisionalPrediction();
   handleVoiceEntry(prediction);
 }
 
