@@ -1,4 +1,4 @@
-const CACHE_NAME = "tone-raindrops-v78";
+const CACHE_NAME = "tone-raindrops-v79";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,8 +6,10 @@ const ASSETS = [
   "./styles.css",
   "./collector.css",
   "./app.js",
+  "./voice-forest.js",
   "./collector.js",
   "./voice-model.json",
+  "./voice-model-tone-perfect.json",
   "./supabase-voice-setup.sql",
   "./supabase-delete-ma-ba.sql",
   "./supabase-delete-latest-tang3.sql",

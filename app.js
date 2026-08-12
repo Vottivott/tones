@@ -69,7 +69,10 @@ const VOICE_DEFAULT_MODEL_OPTIONS = {
 
 const VOICE_GLOBAL_MODEL_KEY = "__global__";
 const VOICE_GENERAL_MODEL_KEY = "__general_static__";
-const VOICE_GENERAL_MODEL_URL = "./voice-model.json";
+const VOICE_GENERAL_MODEL_URLS = [
+  "./voice-model-tone-perfect.json",
+  "./voice-model.json",
+];
 const VOICE_GLOBAL_MODEL_OPTIONS = {
   k: 3,
   contourWeight: 0.7,
@@ -2083,7 +2086,7 @@ async function loadVoiceModelForCurrentSet() {
     return;
   }
   const generalModel = await fetchGeneralVoiceModel();
-  if (generalModel?.kind === "general-tone-v1") {
+  if (["tone-ensemble-v3", "general-tone-v1"].includes(generalModel?.kind)) {
     state.voiceModel = generalModel;
     state.voiceModelFamilyId = VOICE_GENERAL_MODEL_KEY;
     return;
@@ -2108,22 +2111,24 @@ async function fetchGeneralVoiceModel() {
   if (state.voiceModelCache.has(VOICE_GENERAL_MODEL_KEY)) {
     return state.voiceModelCache.get(VOICE_GENERAL_MODEL_KEY);
   }
-  try {
-    const response = await fetch(VOICE_GENERAL_MODEL_URL);
-    if (!response.ok) {
-      throw new Error(`model ${response.status}`);
+  for (const url of VOICE_GENERAL_MODEL_URLS) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`model ${response.status}`);
+      }
+      const model = await response.json();
+      if (!["tone-ensemble-v3", "general-tone-v1"].includes(model?.kind)) {
+        throw new Error("unsupported model");
+      }
+      state.voiceModelCache.set(VOICE_GENERAL_MODEL_KEY, model);
+      return model;
+    } catch (error) {
+      console.warn(`Could not load voice model ${url}`, error);
     }
-    const model = await response.json();
-    if (model?.kind !== "general-tone-v1") {
-      throw new Error("unsupported model");
-    }
-    state.voiceModelCache.set(VOICE_GENERAL_MODEL_KEY, model);
-    return model;
-  } catch (error) {
-    console.warn("Could not load general voice model", error);
-    state.voiceModelCache.set(VOICE_GENERAL_MODEL_KEY, null);
-    return null;
   }
+  state.voiceModelCache.set(VOICE_GENERAL_MODEL_KEY, null);
+  return null;
 }
 
 async function fetchVoiceModel(set) {
@@ -2300,7 +2305,60 @@ function predictVoiceTone(frames) {
   if (state.voiceModel?.kind === "general-tone-v1") {
     return predictWithVoiceGeneralModel(vector, state.voiceModel);
   }
+  if (state.voiceModel?.kind === "tone-ensemble-v3") {
+    return predictWithVoiceEnsemble(vector, state.voiceModel);
+  }
   return predictWithVoiceHeuristic(vector);
+}
+
+function voiceModelInputs(vector, model) {
+  const preprocessing = model.preprocessing;
+  const values = vectorValues(vector, preprocessing?.globalMedianPitch);
+  if (!values || !preprocessing?.scalarMeans?.length) {
+    return null;
+  }
+  const scalars = values.map(
+    (value, index) =>
+      (value - (preprocessing.scalarMeans[index] || 0)) /
+      (preprocessing.scalarStds[index] || 1)
+  );
+  const rawContour = resampleValues(
+    vector.modelContour || vector.contour,
+    preprocessing.sequencePoints || 48
+  );
+  const contour = rawContour.map((value) => Math.max(-2, Math.min(2, value / 6)));
+  const delta = rawContour.map((value, index) =>
+    Math.max(-2, Math.min(2, (index ? value - rawContour[index - 1] : 0) / 2))
+  );
+  return { scalars, rawContour, sequence: [contour, delta] };
+}
+
+function predictWithVoiceEnsemble(vector, model) {
+  const inputs = voiceModelInputs(vector, model);
+  if (!inputs || !globalThis.ToneForest?.predictEnsemble) {
+    return predictWithVoiceHeuristic(vector);
+  }
+  const prediction = globalThis.ToneForest.predictEnsemble(
+    model,
+    inputs.scalars,
+    inputs.sequence,
+    inputs.scalars
+  );
+  const scores = normalizeScores(
+    Object.fromEntries(SINGLE_TONES.map((tone, index) => [tone, prediction.scores[index] || 0]))
+  );
+  const tone = bestTone(scores);
+  return {
+    tone,
+    confidence: scores[tone],
+    method: "Tone Perfect pitch ensemble v3",
+    scores,
+    features: vector,
+    components: {
+      forest: Object.fromEntries(SINGLE_TONES.map((label, index) => [label, prediction.forest[index] || 0])),
+      cnn: Object.fromEntries(SINGLE_TONES.map((label, index) => [label, prediction.cnn[index] || 0])),
+    },
+  };
 }
 
 function predictWithVoiceGeneralModel(vector, model) {
@@ -2519,6 +2577,7 @@ function contourVector(frames) {
   const smoothed = smoothValues(smoothValues(semitones));
   const points = resampleValues(smoothed, 5);
   const contour = resampleValues(smoothed, 20);
+  const modelContour = resampleValues(smoothed, 48);
   const minValue = Math.min(...smoothed);
   const maxValue = Math.max(...smoothed);
   const minIndex = smoothed.indexOf(minValue);
@@ -2566,6 +2625,7 @@ function contourVector(frames) {
     upStepShare: diffs.length ? diffs.filter((value) => value > 0.18).length / diffs.length : 0,
     downStepShare: diffs.length ? diffs.filter((value) => value < -0.18).length / diffs.length : 0,
     contour,
+    modelContour,
   };
 }
 
