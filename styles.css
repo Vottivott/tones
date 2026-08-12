@@ -59,6 +59,19 @@ body.bird-active {
   padding: 2rem clamp(1.5rem, 4vw, 4rem) 2.5rem;
 }
 
+.app-version {
+  position: fixed;
+  right: 0.7rem;
+  bottom: 0.45rem;
+  z-index: 2;
+  color: rgba(232, 247, 251, 0.42);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(2, 20, 28, 0.45);
+}
+
 .hud {
   display: flex;
   flex-wrap: wrap;
