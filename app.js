@@ -779,6 +779,7 @@ const state = {
   voiceFeedbackUntil: 0,
   voiceProvisionalTone: null,
   voiceProvisionalCount: 0,
+  voicePriorityDropId: null,
   hannesMode: HANNES_MODE,
   imagePadOrder: [],
   meaningSet: null,
@@ -1968,6 +1969,7 @@ async function startVoiceInput() {
   state.voiceIsSpeaking = false;
   state.voiceLastVoiceAt = 0;
   state.voiceLastAcceptedAt = 0;
+  state.voicePriorityDropId = null;
   resetVoiceProvisionalPrediction();
   try {
     await loadVoiceModelForCurrentSet();
@@ -2009,6 +2011,7 @@ function stopVoiceInput() {
   state.voiceUtteranceFrames = [];
   state.voiceIsSpeaking = false;
   state.voiceLastVoiceAt = 0;
+  state.voicePriorityDropId = null;
   state.voiceFeedbackUntil = 0;
   state.voiceListening = false;
   resetVoiceProvisionalPrediction();
@@ -2024,6 +2027,7 @@ function clearVoiceCaptureState() {
   state.voiceUtteranceFrames = [];
   state.voiceIsSpeaking = false;
   state.voiceLastVoiceAt = 0;
+  state.voicePriorityDropId = null;
   resetVoiceProvisionalPrediction();
 }
 
@@ -2061,6 +2065,7 @@ function captureVoiceFrame() {
   if (isVoiced && !state.voiceIsSpeaking) {
     state.voiceUtteranceFrames = [];
     state.voiceIsSpeaking = true;
+    state.voicePriorityDropId = findLowestDrop()?.id ?? null;
   }
   if (state.voiceIsSpeaking) {
     state.voiceUtteranceFrames.push(frame);
@@ -2232,6 +2237,10 @@ function runVoicePrediction() {
     return;
   }
   if (!shouldFinalize) {
+    if (!shouldAcceptVoicePredictionEarly(prediction, state.voicePriorityDropId)) {
+      resetVoiceProvisionalPrediction();
+      return;
+    }
     if (prediction.confidence >= VOICE_EARLY_FAST_CONFIDENCE) {
       acceptVoicePrediction(prediction, now);
       return;
@@ -2255,6 +2264,7 @@ function runVoicePrediction() {
   resetVoiceProvisionalPrediction();
   state.voiceUtteranceFrames = [];
   state.voiceIsSpeaking = false;
+  state.voicePriorityDropId = null;
   if (prediction.confidence < VOICE_MIN_CONFIDENCE) {
     return;
   }
@@ -2266,6 +2276,7 @@ function acceptVoicePrediction(prediction, now = performance.now()) {
   state.voiceFrames = [];
   state.voiceUtteranceFrames = [];
   state.voiceIsSpeaking = false;
+  state.voicePriorityDropId = null;
   resetVoiceProvisionalPrediction();
   handleVoiceEntry(prediction);
 }
@@ -4014,10 +4025,22 @@ function findMatches(tones) {
 }
 
 function findReviewTarget() {
-  if (!drops.length) {
+  return findLowestDrop();
+}
+
+function findLowestDrop(candidates = drops) {
+  if (!candidates.length) {
     return null;
   }
-  return drops.reduce((closest, drop) => (drop.y > closest.y ? drop : closest));
+  return candidates.reduce((lowest, drop) => (drop.y > lowest.y ? drop : lowest));
+}
+
+function shouldAcceptVoicePredictionEarly(prediction, priorityDropId, candidates = drops) {
+  if (!prediction || priorityDropId === null || priorityDropId === undefined) {
+    return false;
+  }
+  const priorityDrop = candidates.find((drop) => drop.id === priorityDropId);
+  return Boolean(priorityDrop && priorityDrop.tones === prediction.tone);
 }
 
 function shouldTrackUnmatchedToneInput(tones) {
