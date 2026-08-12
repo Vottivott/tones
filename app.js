@@ -2487,6 +2487,20 @@ function contourVector(frames) {
   const start = points[0];
   const mid = points[2];
   const end = points[4];
+  const diffs = smoothed.slice(1).map((value, index) => value - smoothed[index]);
+  const strongDiffs = diffs.filter((value) => Math.abs(value) >= 0.18);
+  const turnCount = strongDiffs.slice(1).reduce((count, value, index) => {
+    const previous = strongDiffs[index];
+    return count + (Math.sign(value) !== Math.sign(previous) ? 1 : 0);
+  }, 0);
+  const durationMs = Math.max(0, (voiced[voiced.length - 1]?.t || 0) - (voiced[0]?.t || 0));
+  const clarities = voiced.map((frame) => frame.clarity).filter(Number.isFinite);
+  const meanPitchShape = smoothed.length
+    ? smoothed.reduce((sum, value) => sum + value, 0) / smoothed.length
+    : 0;
+  const meanClarity = clarities.length
+    ? clarities.reduce((sum, value) => sum + value, 0) / clarities.length
+    : 0;
   return {
     medianPitchHz,
     start,
@@ -2494,7 +2508,7 @@ function contourVector(frames) {
     mid,
     q3: points[3],
     end,
-    mean: mean(smoothed) ?? 0,
+    mean: meanPitchShape,
     meanRel: 0,
     slope: end - start,
     earlySlope: mid - start,
@@ -2502,7 +2516,16 @@ function contourVector(frames) {
     range: maxValue - minValue,
     minPosition: smoothed.length > 1 ? minIndex / (smoothed.length - 1) : 0,
     maxPosition: smoothed.length > 1 ? maxIndex / (smoothed.length - 1) : 0,
+    durationMs,
     voicedFrameCount: voiced.length,
+    meanClarity,
+    clarityRange: clarities.length ? Math.max(...clarities) - Math.min(...clarities) : 0,
+    dipDepth: Math.max(0, Math.min(start, end) - minValue),
+    riseAfterMin: end - minValue,
+    fallAfterMax: maxValue - end,
+    turnCount,
+    upStepShare: diffs.length ? diffs.filter((value) => value > 0.18).length / diffs.length : 0,
+    downStepShare: diffs.length ? diffs.filter((value) => value < -0.18).length / diffs.length : 0,
     contour,
   };
 }
@@ -2574,6 +2597,16 @@ function vectorValues(vector, globalMedianPitch = vector.medianPitchHz) {
     vector.minPosition,
     vector.maxPosition,
     meanRel,
+    vector.durationMs,
+    vector.voicedFrameCount,
+    vector.meanClarity,
+    vector.clarityRange,
+    vector.dipDepth,
+    vector.riseAfterMin,
+    vector.fallAfterMax,
+    vector.turnCount,
+    vector.upStepShare,
+    vector.downStepShare,
   ];
 }
 
