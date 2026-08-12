@@ -1868,6 +1868,45 @@ function playToneSample(tones) {
   setStatus(`Replaying: ${entry.text}`);
 }
 
+function isMeaningReviewLevel(level = getLevelById(state.levelId)) {
+  return Array.isArray(level?.meaningSetIds) && level.meaningSetIds.length > 1;
+}
+
+function canReplayFallingDrop() {
+  if (state.toneMode === "vis" || !drops.length) {
+    return false;
+  }
+  if (isVoiceMode()) {
+    return isMeaningReviewLevel();
+  }
+  return true;
+}
+
+function isPointInDrop(drop, x, y) {
+  if (drop.renderMode === "voice-meaning") {
+    const width = drop.cardWidth || computeVoiceDropSize().width;
+    const height = drop.cardHeight || computeVoiceDropSize().height;
+    const left = drop.x - width / 2;
+    const top = drop.y - height / 2;
+    return x >= left && x <= left + width && y >= top && y <= top + height;
+  }
+  if (drop.renderMode === "vis") {
+    const size = drop.size || 72;
+    const half = size / 2;
+    return x >= drop.x - half && x <= drop.x + half && y >= drop.y - half && y <= drop.y + half;
+  }
+  return Math.hypot(drop.x - x, drop.y - y) < drop.radius;
+}
+
+function playFallingDropSample(drop) {
+  lastSpoken = drop;
+  if (isVoiceMode()) {
+    suppressVoiceFeedbackRecognition();
+  }
+  speak(drop.text, { force: true, allowDuringVoiceGame: isVoiceMode() });
+  setStatus(`Replaying: ${drop.text}`);
+}
+
 function shuffleImagePadOrder() {
   const order = [...IMAGE_PAD_TONES];
   for (let i = order.length - 1; i > 0; i -= 1) {
@@ -4242,24 +4281,15 @@ function tick(timestamp) {
 }
 
 function handlePointer(event) {
-  if (state.toneMode === "vis" || isVoiceMode()) {
-    return;
-  }
-  if (!drops.length) {
+  if (!canReplayFallingDrop()) {
     return;
   }
   const rect = canvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-  const hit = drops.find((drop) => {
-    const dx = drop.x - x;
-    const dy = drop.y - y;
-    return Math.hypot(dx, dy) < drop.radius;
-  });
+  const hit = [...drops].reverse().find((drop) => isPointInDrop(drop, x, y));
   if (hit) {
-    lastSpoken = hit;
-    speak(hit.text, { force: true });
-    setStatus(`Replaying: ${hit.text}`);
+    playFallingDropSample(hit);
   }
 }
 
