@@ -68,6 +68,8 @@ const VOICE_DEFAULT_MODEL_OPTIONS = {
 };
 
 const VOICE_GLOBAL_MODEL_KEY = "__global__";
+const VOICE_GENERAL_MODEL_KEY = "__general_static__";
+const VOICE_GENERAL_MODEL_URL = "./voice-model.json";
 const VOICE_GLOBAL_MODEL_OPTIONS = {
   k: 3,
   contourWeight: 0.7,
@@ -2038,6 +2040,15 @@ async function loadVoiceModelForCurrentSet() {
     state.voiceModelFamilyId = null;
     return;
   }
+  if (state.voiceModelFamilyId === VOICE_GENERAL_MODEL_KEY && state.voiceModel) {
+    return;
+  }
+  const generalModel = await fetchGeneralVoiceModel();
+  if (generalModel?.kind === "general-tone-v1") {
+    state.voiceModel = generalModel;
+    state.voiceModelFamilyId = VOICE_GENERAL_MODEL_KEY;
+    return;
+  }
   if (state.voiceModelFamilyId === set.id && state.voiceModel) {
     return;
   }
@@ -2051,6 +2062,28 @@ async function loadVoiceModelForCurrentSet() {
   if (state.meaningSet?.id === set.id) {
     state.voiceModel = model;
     state.voiceModelFamilyId = set.id;
+  }
+}
+
+async function fetchGeneralVoiceModel() {
+  if (state.voiceModelCache.has(VOICE_GENERAL_MODEL_KEY)) {
+    return state.voiceModelCache.get(VOICE_GENERAL_MODEL_KEY);
+  }
+  try {
+    const response = await fetch(VOICE_GENERAL_MODEL_URL);
+    if (!response.ok) {
+      throw new Error(`model ${response.status}`);
+    }
+    const model = await response.json();
+    if (model?.kind !== "general-tone-v1") {
+      throw new Error("unsupported model");
+    }
+    state.voiceModelCache.set(VOICE_GENERAL_MODEL_KEY, model);
+    return model;
+  } catch (error) {
+    console.warn("Could not load general voice model", error);
+    state.voiceModelCache.set(VOICE_GENERAL_MODEL_KEY, null);
+    return null;
   }
 }
 
@@ -2225,7 +2258,61 @@ function predictVoiceTone(frames) {
   if (state.voiceModel?.kind === "knn") {
     return predictWithVoiceKnn(vector, state.voiceModel);
   }
+  if (state.voiceModel?.kind === "general-tone-v1") {
+    return predictWithVoiceGeneralModel(vector, state.voiceModel);
+  }
   return predictWithVoiceHeuristic(vector);
+}
+
+function predictWithVoiceGeneralModel(vector, model) {
+  const softmaxScores = predictWithVoiceSoftmax(vector, model);
+  const knnPrediction = model.knn
+    ? predictWithVoiceKnn(vector, {
+        kind: "knn",
+        options: model.knn.options || VOICE_GLOBAL_MODEL_OPTIONS,
+        methodLabel: "general kNN contour",
+        source: "general",
+        globalMedianPitch: model.globalMedianPitch,
+        stats: model.softmax,
+        samples: model.knn.samples || [],
+      })
+    : null;
+  const blend = Number.isFinite(model.blend) ? model.blend : 0.5;
+  const scores = normalizeScores(
+    Object.fromEntries(
+      SINGLE_TONES.map((tone) => [
+        tone,
+        (softmaxScores[tone] || 0) * blend + (knnPrediction?.scores?.[tone] || 0) * (1 - blend),
+      ])
+    )
+  );
+  const tone = bestTone(scores);
+  return {
+    tone,
+    confidence: scores[tone],
+    method: blend <= 0 ? "general kNN contour" : `general hybrid ${Math.round(blend * 100)}%`,
+    scores,
+    features: vector,
+    components: {
+      softmax: softmaxScores,
+      knn: knnPrediction?.scores || null,
+    },
+  };
+}
+
+function predictWithVoiceSoftmax(vector, model) {
+  const values = vectorValues(vector, model.globalMedianPitch);
+  if (!values || !model.softmax?.weights?.length) {
+    return { "1": 0.25, "2": 0.25, "3": 0.25, "4": 0.25 };
+  }
+  const standardized = standardizeVector(values, model.softmax);
+  const logits = model.softmax.weights.map(
+    (weights, index) => dotValues(weights, standardized) + (model.softmax.biases?.[index] || 0)
+  );
+  const probabilities = softmaxValues(logits);
+  return normalizeScores(
+    Object.fromEntries(SINGLE_TONES.map((tone, index) => [tone, probabilities[index] || 0]))
+  );
 }
 
 function predictWithVoiceKnn(vector, model) {
@@ -2239,6 +2326,7 @@ function predictWithVoiceKnn(vector, model) {
       const contourDistance = dtwDistance(vector.contour, sample.contour);
       return {
         tone: sample.tone,
+        weight: sample.weight || 1,
         distance:
           contourDistance * options.contourWeight +
           featureDistance * (1 - options.contourWeight),
@@ -2248,7 +2336,8 @@ function predictWithVoiceKnn(vector, model) {
   const k = Math.min(options.k, neighbors.length);
   neighbors.slice(0, k).forEach((neighbor, index) => {
     const rankWeight = 1 - index / Math.max(1, k + 1);
-    rawScores[neighbor.tone] += rankWeight / Math.max(options.distanceFloor, neighbor.distance);
+    rawScores[neighbor.tone] +=
+      neighbor.weight * rankWeight / Math.max(options.distanceFloor, neighbor.distance);
   });
   const scores = normalizeScores(rawScores);
   const tone = bestTone(scores);
@@ -2533,6 +2622,17 @@ function dtwDistance(left, right) {
     }
   }
   return costs[left.length * width + right.length] / (left.length + right.length);
+}
+
+function softmaxValues(values) {
+  const maxValue = Math.max(...values);
+  const exps = values.map((value) => Math.exp(value - maxValue));
+  const total = exps.reduce((sum, value) => sum + value, 0) || 1;
+  return exps.map((value) => value / total);
+}
+
+function dotValues(left, right) {
+  return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0);
 }
 
 function smoothValues(values) {
